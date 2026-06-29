@@ -56,9 +56,15 @@ npm run dev                         # http://localhost:3000
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon public key>
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
+
+> Use the **publishable** key (`sb_publishable_…`) from Project Settings → API.
+> The legacy `anon` JWT key also works if you set `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+> instead — the app reads whichever is present. Both are public client keys,
+> safe to expose and protected by Row-Level Security. Never put the
+> `sb_secret_…` / `service_role` key in any `NEXT_PUBLIC_*` variable.
 
 ### 4. Deploy to Vercel
 

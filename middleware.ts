@@ -1,23 +1,21 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase/config';
 
 // Refreshes the Supabase session on every request and guards the app routes.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
   // If the app isn't configured yet (e.g. env vars missing on the host),
   // don't crash the whole site — just pass the request through.
-  if (!supabaseUrl || !supabaseKey) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
     console.error('Supabase env vars are not set; skipping auth middleware.');
     return response;
   }
 
   const supabase = createServerClient(
-    supabaseUrl,
-    supabaseKey,
+    SUPABASE_URL,
+    SUPABASE_KEY,
     {
       cookies: {
         getAll() {
