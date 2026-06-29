@@ -1,9 +1,26 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Project, TimeEntry, TimeEntryWithUser } from '@/lib/types';
+import type { Profile, Project, Team, TimeEntry, TimeEntryWithUser } from '@/lib/types';
 
 // Accept either the browser or server client. Each function below declares its
 // own typed return value, so query inputs/outputs stay checked at the call sites.
 type DB = SupabaseClient<any, any, any>;
+
+/* ---------- Profile / team ---------- */
+
+export async function getMyProfile(supabase: DB, userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function setMyTeam(supabase: DB, userId: string, team: Team) {
+  const { error } = await supabase.from('profiles').update({ team }).eq('id', userId);
+  if (error) throw error;
+}
 
 /* ---------- Projects (shared across the workspace) ---------- */
 
@@ -17,10 +34,16 @@ export async function fetchProjects(supabase: DB): Promise<Project[]> {
   return data ?? [];
 }
 
-export async function createProject(supabase: DB, name: string, color: string, userId: string) {
+export async function createProject(
+  supabase: DB,
+  name: string,
+  color: string,
+  userId: string,
+  team: Team | null
+) {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name: name.trim(), color, created_by: userId })
+    .insert({ name: name.trim(), color, created_by: userId, team })
     .select()
     .single();
   if (error) throw error;
@@ -118,10 +141,28 @@ export async function fetchTeamEntriesSince(
 ): Promise<TimeEntryWithUser[]> {
   const { data, error } = await supabase
     .from('time_entries')
-    .select('*, profiles(full_name, email, avatar_url)')
+    .select('*, profiles(full_name, email, avatar_url, team)')
     .gte('started_at', sinceIso)
     .not('ended_at', 'is', null)
     .order('started_at', { ascending: false });
+  if (error) throw error;
+  return (data as unknown as TimeEntryWithUser[]) ?? [];
+}
+
+// Completed team entries that started within [startIso, endIso) — for the
+// calendar's day view and per-day activity markers.
+export async function fetchTeamEntriesBetween(
+  supabase: DB,
+  startIso: string,
+  endIso: string
+): Promise<TimeEntryWithUser[]> {
+  const { data, error } = await supabase
+    .from('time_entries')
+    .select('*, profiles(full_name, email, avatar_url, team)')
+    .gte('started_at', startIso)
+    .lt('started_at', endIso)
+    .not('ended_at', 'is', null)
+    .order('started_at', { ascending: true });
   if (error) throw error;
   return (data as unknown as TimeEntryWithUser[]) ?? [];
 }

@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
 import type { Project, TimeEntryWithUser } from '@/lib/types';
+import { teamMeta } from '@/lib/teams';
 import * as Fmt from '@/lib/format';
 
 type Range = 'day' | 'week' | 'month';
-type Grouping = 'project' | 'person';
+type Grouping = 'project' | 'person' | 'team';
 
 function rangeStart(range: Range): number {
   const d = new Date();
@@ -73,6 +74,11 @@ export function ReportsClient() {
         key = e.project_id ?? 'none';
         name = p?.name ?? 'No project';
         color = p?.color ?? '#99a3ad';
+      } else if (grouping === 'team') {
+        const meta = teamMeta(e.profiles?.team);
+        key = meta?.key ?? 'none';
+        name = meta?.label ?? 'No team';
+        color = meta?.color ?? '#99a3ad';
       } else {
         name = e.profiles?.full_name || e.profiles?.email || 'Unknown';
         key = name;
@@ -120,6 +126,9 @@ export function ReportsClient() {
 
   return (
     <section className="view">
+      <div className="page-head">
+        <div className="page-title">Reports</div>
+      </div>
       <div className="report-controls">
         <div className="range-picker">
           {(['day', 'week', 'month'] as Range[]).map((r) => (
@@ -137,19 +146,19 @@ export function ReportsClient() {
         </button>
       </div>
 
-      <div className="report-total">
+      <div className="report-total glass">
         <span className="report-total-label">Team total</span>
         <span className="report-total-value">{Fmt.duration(total)}</span>
       </div>
 
       <div className="range-picker group-toggle">
-        {(['project', 'person'] as Grouping[]).map((g) => (
+        {(['project', 'person', 'team'] as Grouping[]).map((g) => (
           <button
             key={g}
             className={'chip' + (grouping === g ? ' is-active' : '')}
             onClick={() => setGrouping(g)}
           >
-            {g === 'project' ? 'By project' : 'By person'}
+            {g === 'project' ? 'By project' : g === 'person' ? 'By person' : 'By team'}
           </button>
         ))}
       </div>
@@ -161,7 +170,7 @@ export function ReportsClient() {
           <p className="empty-state">No time tracked in this range yet.</p>
         ) : (
           rows.map((row) => (
-            <div className="report-row" key={row.name}>
+            <div className="report-row glass" key={row.name}>
               <span className="entry-dot" style={{ background: row.color }} />
               <div className="report-bar-wrap">
                 <div className="report-bar-top">

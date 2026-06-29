@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getMyProfile } from '@/lib/db';
 import { ProjectsClient } from './ProjectsClient';
 
 export default async function ProjectsPage() {
@@ -6,5 +7,11 @@ export default async function ProjectsPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return <ProjectsClient userId={user!.id} />;
+  let team = null;
+  try {
+    team = (await getMyProfile(supabase, user!.id))?.team ?? null;
+  } catch {
+    /* no profile yet */
+  }
+  return <ProjectsClient userId={user!.id} myTeam={team} />;
 }

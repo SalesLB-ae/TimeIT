@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
 import type { Project, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
+import { teamMeta } from '@/lib/teams';
 import { EntryModal, type EntryDraft } from '@/components/EntryModal';
 
 export function TrackClient({ userId }: { userId: string }) {
@@ -129,7 +130,10 @@ export function TrackClient({ userId }: { userId: string }) {
 
   return (
     <section className="view">
-      <div className="timer-card">
+      <div className="page-head">
+        <div className="page-title">Track</div>
+      </div>
+      <div className="timer-card glass">
         <input
           ref={descRef}
           type="text"
@@ -201,9 +205,10 @@ export function TrackClient({ userId }: { userId: string }) {
               </div>
               {group.entries.map((e) => {
                 const project = projects.find((p) => p.id === e.project_id) ?? null;
+                const meta = teamMeta(project?.team);
                 return (
                   <div
-                    className="entry"
+                    className="entry glass"
                     key={e.id}
                     onClick={() =>
                       setModalEntry({
@@ -224,10 +229,17 @@ export function TrackClient({ userId }: { userId: string }) {
                         {e.description || 'No description'}
                       </div>
                       <div className="entry-meta">
-                        {(project ? project.name + ' · ' : '') +
-                          Fmt.clockTime(e.startMs) +
-                          ' – ' +
-                          Fmt.clockTime(e.endMs)}
+                        <span>
+                          {(project ? project.name + ' · ' : '') +
+                            Fmt.clockTime(e.startMs) +
+                            ' – ' +
+                            Fmt.clockTime(e.endMs)}
+                        </span>
+                        {meta && (
+                          <span className="team-badge" style={{ color: meta.color, background: meta.tint }}>
+                            {meta.label}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <span className="entry-duration">{Fmt.duration(e.endMs - e.startMs)}</span>

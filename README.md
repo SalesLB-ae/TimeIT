@@ -6,12 +6,14 @@ A fast, **team** time tracker in the spirit of Clockify — built for ease of us
 
 - **Google sign-in** with your work account — no passwords to manage. Sign-up is restricted to your company domain.
 - **Shared team workspace** — everyone shares the same projects.
+- **Teams (Sales / Ops)** — each person sets their team designation, color-coded everywhere (Sales = coral, Ops = violet). Projects can belong to a team too.
 - **One-click timer** — type what you're doing, hit ▶ (or press Enter). Hit it again to stop. The live time also shows in the browser tab.
+- **Side-panel calendar** — pick any day to see exactly what the whole team logged that day, grouped by person with team badges and totals.
 - **Entries grouped by day** with daily totals. Click any entry to edit times, or tap ▶ to **resume** it.
 - ➕ **Manual time entry** for when you forget to start the timer.
-- 📊 **Team reports** — totals for today / this week / this month, broken down **by project** or **by person**, with **CSV export** for invoicing.
+- 📊 **Team reports** — totals for today / this week / this month, broken down **by project, by person, or by team**, with **CSV export** for invoicing.
 - 🔒 **Row-Level Security** — the database enforces that you can only edit your *own* entries, even though the whole team can read reports.
-- Light theme, responsive layout, works great on phones.
+- Sky-blue, Apple-style "liquid glass" UI; responsive, works great on phones.
 
 ## Tech stack
 
@@ -30,7 +32,7 @@ A fast, **team** time tracker in the spirit of Clockify — built for ease of us
 ### 1. Create the Supabase project
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Open **SQL Editor** → paste the contents of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) → **Run**. This creates the `profiles`, `projects`, and `time_entries` tables, the RLS policies, and the new-user trigger.
+2. Open **SQL Editor** → paste the contents of [`supabase/migrations/0001_init.sql`](supabase/migrations/0001_init.sql) → **Run**. This creates the `profiles`, `projects`, and `time_entries` tables, the RLS policies, and the new-user trigger. Then do the same with [`supabase/migrations/0002_teams.sql`](supabase/migrations/0002_teams.sql) to add the Sales/Ops team columns.
 3. **Domain restriction** lives in that SQL — the `handle_new_user()` function rejects any sign-up whose email isn't `@leadersbrands.ae`. To change the domain, edit the `allowed_domain` value; to allow anyone, delete the `raise exception` block. (See the comments in the file.)
 
 ### 2. Enable Google sign-in
