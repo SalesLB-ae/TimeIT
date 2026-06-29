@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Profile, Project, Team, TimeEntry } from '@/lib/types';
+import type { Profile, Project, Role, Team, TimeEntry, TimeEntryWithUser } from '@/lib/types';
 
 // Accept either the browser or server client. Each function below declares its
 // own typed return value, so query inputs/outputs stay checked at the call sites.
@@ -19,6 +19,27 @@ export async function getMyProfile(supabase: DB, userId: string): Promise<Profil
 
 export async function setMyTeam(supabase: DB, userId: string, team: Team) {
   const { error } = await supabase.from('profiles').update({ team }).eq('id', userId);
+  if (error) throw error;
+}
+
+/* ---- Admin: manage everyone (allowed by RLS only for admins) ---- */
+
+export async function fetchAllProfiles(supabase: DB): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .order('full_name', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function setProfileRole(supabase: DB, id: string, role: Role) {
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function setProfileTeam(supabase: DB, id: string, team: Team | null) {
+  const { error } = await supabase.from('profiles').update({ team }).eq('id', id);
   if (error) throw error;
 }
 
@@ -149,6 +170,25 @@ export async function fetchMyEntriesSince(
     .order('started_at', { ascending: false });
   if (error) throw error;
   return data ?? [];
+}
+
+// ALL teammates' completed entries within [startIso, endIso), with author
+// info — for the manager/admin Team view. RLS only returns rows to elevated
+// roles, so members calling this still only ever see their own.
+export async function fetchAllEntriesBetween(
+  supabase: DB,
+  startIso: string,
+  endIso: string
+): Promise<TimeEntryWithUser[]> {
+  const { data, error } = await supabase
+    .from('time_entries')
+    .select('*, profiles(full_name, email, avatar_url, team)')
+    .gte('started_at', startIso)
+    .lt('started_at', endIso)
+    .not('ended_at', 'is', null)
+    .order('started_at', { ascending: true });
+  if (error) throw error;
+  return (data as unknown as TimeEntryWithUser[]) ?? [];
 }
 
 // The current user's completed entries that started within [startIso, endIso)

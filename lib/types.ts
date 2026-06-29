@@ -1,6 +1,7 @@
 // Domain types + a minimal Supabase Database type for typed queries.
 
 export type Team = 'sales' | 'ops';
+export type Role = 'member' | 'manager' | 'admin';
 
 export interface Profile {
   id: string;
@@ -8,6 +9,7 @@ export interface Profile {
   full_name: string | null;
   avatar_url: string | null;
   team: Team | null;
+  role: Role;
   created_at: string;
 }
 

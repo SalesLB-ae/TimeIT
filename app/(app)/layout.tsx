@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getMyProfile } from '@/lib/db';
 import { Sidebar } from './Sidebar';
-import type { Team } from '@/lib/types';
+import type { Role, Team } from '@/lib/types';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -12,13 +12,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   if (!user) redirect('/login');
 
-  // The team designation lives on the profile (set by the user).
+  // Team designation + role live on the profile.
   let team: Team | null = null;
+  let role: Role = 'member';
   try {
     const profile = await getMyProfile(supabase, user.id);
     team = profile?.team ?? null;
+    role = profile?.role ?? 'member';
   } catch {
-    // Profile may not exist yet on a brand-new account; treat as no team.
+    // Profile may not exist yet on a brand-new account; treat as a member.
   }
 
   const name =
@@ -30,7 +32,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="shell">
-      <Sidebar userId={user.id} name={name} email={user.email ?? ''} avatar={avatar} team={team} />
+      <Sidebar
+        userId={user.id}
+        name={name}
+        email={user.email ?? ''}
+        avatar={avatar}
+        team={team}
+        role={role}
+      />
       <main className="content">{children}</main>
     </div>
   );

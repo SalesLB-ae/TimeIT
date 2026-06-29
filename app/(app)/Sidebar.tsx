@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { setMyTeam } from '@/lib/db';
 import { TEAM_LIST, teamMeta } from '@/lib/teams';
-import type { Team } from '@/lib/types';
+import type { Role, Team } from '@/lib/types';
 import { MiniCalendar } from '@/components/MiniCalendar';
 
 const NAV = [
@@ -16,24 +16,31 @@ const NAV = [
   { href: '/projects', label: 'Projects', icon: '🗂' },
 ];
 
+const ROLE_LABEL: Record<Role, string> = { member: 'Member', manager: 'Manager', admin: 'Admin' };
+
 export function Sidebar({
   userId,
   name,
   email,
   avatar,
   team,
+  role,
 }: {
   userId: string;
   name: string;
   email: string;
   avatar: string | null;
   team: Team | null;
+  role: Role;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(true);
   const [savingTeam, setSavingTeam] = useState(false);
+  const [pickingTeam, setPickingTeam] = useState(false);
   const meta = teamMeta(team);
+  const elevated = role === 'manager' || role === 'admin';
+  const firstName = name.split(' ')[0] || name;
 
   async function changeTeam(value: string) {
     if (value !== 'sales' && value !== 'ops') return;
@@ -41,6 +48,7 @@ export function Sidebar({
     const supabase = createClient();
     try {
       await setMyTeam(supabase, userId, value);
+      setPickingTeam(false);
       router.refresh();
     } finally {
       setSavingTeam(false);
@@ -59,11 +67,7 @@ export function Sidebar({
       <div className="brand">
         <span className="brand-mark">⏱</span>
         <span className="brand-name">TimeIT</span>
-        <button
-          className="menu-toggle"
-          onClick={() => setCollapsed((c) => !c)}
-          aria-label="Toggle menu"
-        >
+        <button className="menu-toggle" onClick={() => setCollapsed((c) => !c)} aria-label="Toggle menu">
           ☰
         </button>
       </div>
@@ -78,6 +82,15 @@ export function Sidebar({
             </Link>
           );
         })}
+        {elevated && (
+          <Link
+            href="/team"
+            className={'nav-link' + (pathname.startsWith('/team') ? ' is-active' : '')}
+          >
+            <span className="nav-ico">👥</span>
+            Team
+          </Link>
+        )}
       </nav>
 
       <div className="sidebar-calendar">
@@ -86,46 +99,53 @@ export function Sidebar({
 
       <div className="side-spacer" />
 
+      {/* Personalized profile card (lower-left) */}
       <div className="account-block">
-        <div className="account">
-          {avatar ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatar} alt="" className="account-avatar" referrerPolicy="no-referrer" />
-          ) : (
-            <span className="account-avatar account-initial">{name.charAt(0).toUpperCase()}</span>
-          )}
-          <div className="account-main">
-            <div className="account-name">{name}</div>
-            <div className="account-sub">{email}</div>
+        <div className="profile-card">
+          <div className="profile-top">
+            {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatar} alt="" className="account-avatar" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="account-avatar account-initial">{firstName.charAt(0).toUpperCase()}</span>
+            )}
+            <div className="account-main">
+              <div className="account-name">{name}</div>
+              <div className="account-sub">{email}</div>
+            </div>
+            <button className="signout-btn" onClick={signOut} title="Sign out">⎋</button>
           </div>
-          <button className="signout-btn" onClick={signOut}>
-            Sign out
-          </button>
-        </div>
-        <div className="team-row">
-          {meta ? (
-            <span className="team-badge" style={{ color: meta.color, background: meta.tint }}>
-              {meta.label}
-            </span>
-          ) : (
-            <span className="team-badge is-none">No team</span>
-          )}
-          <select
-            className="team-select"
-            value={team ?? ''}
-            onChange={(e) => changeTeam(e.target.value)}
-            disabled={savingTeam}
-            aria-label="Your team"
-          >
-            <option value="" disabled>
-              Set your team…
-            </option>
-            {TEAM_LIST.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+
+          <div className="profile-tags">
+            {elevated && <span className="role-badge">{ROLE_LABEL[role]}</span>}
+
+            {pickingTeam ? (
+              <select
+                className="team-select"
+                value={team ?? ''}
+                onChange={(e) => changeTeam(e.target.value)}
+                disabled={savingTeam}
+                autoFocus
+                onBlur={() => setPickingTeam(false)}
+                aria-label="Your team"
+              >
+                <option value="" disabled>Choose your team…</option>
+                {TEAM_LIST.map((t) => (
+                  <option key={t.key} value={t.key}>{t.label}</option>
+                ))}
+              </select>
+            ) : (
+              <button
+                className={'team-chip' + (meta ? '' : ' is-none')}
+                style={meta ? { color: meta.color, background: meta.tint } : undefined}
+                onClick={() => setPickingTeam(true)}
+                title="Set your team"
+              >
+                {meta ? `${meta.label} team` : 'Set your team'}
+                <span className="team-chip-edit">✎</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </aside>

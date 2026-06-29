@@ -72,27 +72,47 @@ body {
 .nav-link.is-active { background: rgba(47, 109, 246, 0.14); color: var(--accent); }
 .nav-ico { width: 18px; text-align: center; }
 
-/* ---------- Sidebar footer (account + team) ---------- */
+/* ---------- Sidebar footer: personalized profile card ---------- */
 .side-spacer { flex: 1; }
-.account {
-  display: flex; align-items: center; gap: 10px; padding: 8px;
-  border-radius: var(--radius-sm); background: rgba(255, 255, 255, 0.4);
+.profile-card {
+  background: rgba(255, 255, 255, 0.5); border: 1px solid var(--glass-border);
+  border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 9px;
 }
-.account-avatar { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; border: 1px solid var(--glass-border); }
+.profile-top { display: flex; align-items: center; gap: 10px; }
+.account-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid var(--glass-border); flex-shrink: 0; }
 .account-initial { display: grid; place-items: center; background: var(--accent); color: #fff; font-weight: 700; }
 .account-main { flex: 1; min-width: 0; }
-.account-name { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account-name { font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .account-sub { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.team-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
-.team-select {
-  flex: 1; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.6);
-  border-radius: 9px; padding: 6px 8px; font-size: 12.5px; color: var(--text); cursor: pointer; outline: none;
-}
 .signout-btn {
   background: none; border: none; color: var(--text-dim); cursor: pointer;
-  font-size: 12.5px; padding: 6px 8px; border-radius: 8px; font-weight: 600;
+  font-size: 16px; padding: 4px 7px; border-radius: 8px; flex-shrink: 0; line-height: 1;
 }
-.signout-btn:hover { background: rgba(255,255,255,0.5); color: var(--danger); }
+.signout-btn:hover { background: rgba(255,255,255,0.6); color: var(--danger); }
+.profile-tags { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.role-badge {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 999px; color: var(--accent); background: rgba(47, 109, 246, 0.14);
+}
+.team-chip {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  font-size: 11.5px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  border: none; color: var(--text-dim); background: rgba(93, 119, 147, 0.12);
+}
+.team-chip.is-none { border: 1px dashed var(--text-dim); background: transparent; }
+.team-chip-edit { font-size: 10px; opacity: 0.7; }
+.team-select {
+  border: 1px solid var(--glass-border); background: rgba(255,255,255,0.8);
+  border-radius: 9px; padding: 5px 8px; font-size: 12px; color: var(--text); cursor: pointer; outline: none;
+}
+
+/* ---------- Members management (admin) ---------- */
+.members-panel { padding: 16px; margin-bottom: 16px; }
+.members-title { font-weight: 700; margin-bottom: 10px; }
+.member-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid rgba(31,73,125,0.08); }
+.member-row:first-of-type { border-top: none; }
+.member-id { flex: 1; min-width: 0; }
+.member-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---------- Team badge ---------- */
 .team-badge {
@@ -106,12 +126,20 @@ body {
 /* ---------- Timer card ---------- */
 .timer-card { padding: 18px; }
 .timer-primary { display: flex; align-items: center; gap: 12px; }
+/* Borderless, blends into the card — a clickable "title" with a soft chevron. */
 .category-select {
-  flex: 1; min-width: 0; font-size: 18px; font-weight: 600; color: var(--text);
-  border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.72);
-  border-radius: 14px; padding: 15px 16px; cursor: pointer; outline: none;
+  flex: 1; min-width: 0;
+  font-size: 19px; font-weight: 600; color: var(--text);
+  border: none; background-color: transparent;
+  border-radius: 12px; padding: 8px 36px 8px 12px; margin-left: -6px;
+  cursor: pointer; outline: none;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232f6df6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center;
+  transition: background-color 0.15s;
 }
-.category-select:focus { border-color: var(--accent); }
+.category-select:hover { background-color: rgba(255, 255, 255, 0.5); }
+.category-select:focus-visible { background-color: rgba(255, 255, 255, 0.6); }
 .timer-note {
   width: 100%; margin-top: 12px; border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.45); color: var(--text);
