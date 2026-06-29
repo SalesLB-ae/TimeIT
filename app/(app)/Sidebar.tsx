@@ -81,7 +81,7 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-calendar">
-        <MiniCalendar />
+        <MiniCalendar userId={userId} />
       </div>
 
       <div className="side-spacer" />

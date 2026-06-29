@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Profile, Project, Team, TimeEntry, TimeEntryWithUser } from '@/lib/types';
+import type { Profile, Project, Team, TimeEntry } from '@/lib/types';
 
 // Accept either the browser or server client. Each function below declares its
 // own typed return value, so query inputs/outputs stay checked at the call sites.
@@ -134,35 +134,40 @@ export async function deleteEntry(supabase: DB, id: string) {
 
 /* ---------- Reports ---------- */
 
-// All completed entries in the workspace since `sinceIso`, with author info.
-export async function fetchTeamEntriesSince(
+// The current user's completed entries since `sinceIso` — for personal reports.
+export async function fetchMyEntriesSince(
   supabase: DB,
+  userId: string,
   sinceIso: string
-): Promise<TimeEntryWithUser[]> {
+): Promise<TimeEntry[]> {
   const { data, error } = await supabase
     .from('time_entries')
-    .select('*, profiles(full_name, email, avatar_url, team)')
+    .select('*')
+    .eq('user_id', userId)
     .gte('started_at', sinceIso)
     .not('ended_at', 'is', null)
     .order('started_at', { ascending: false });
   if (error) throw error;
-  return (data as unknown as TimeEntryWithUser[]) ?? [];
+  return data ?? [];
 }
 
-// Completed team entries that started within [startIso, endIso) — for the
-// calendar's day view and per-day activity markers.
-export async function fetchTeamEntriesBetween(
+// The current user's completed entries that started within [startIso, endIso)
+// — for the calendar's day view and per-day activity markers. Entries are
+// private, so this only ever returns the signed-in user's own time.
+export async function fetchMyEntriesBetween(
   supabase: DB,
+  userId: string,
   startIso: string,
   endIso: string
-): Promise<TimeEntryWithUser[]> {
+): Promise<TimeEntry[]> {
   const { data, error } = await supabase
     .from('time_entries')
-    .select('*, profiles(full_name, email, avatar_url, team)')
+    .select('*')
+    .eq('user_id', userId)
     .gte('started_at', startIso)
     .lt('started_at', endIso)
     .not('ended_at', 'is', null)
     .order('started_at', { ascending: true });
   if (error) throw error;
-  return (data as unknown as TimeEntryWithUser[]) ?? [];
+  return data ?? [];
 }

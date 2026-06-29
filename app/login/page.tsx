@@ -12,9 +12,6 @@ function LoginCard() {
   async function signInWithGoogle() {
     setLoading(true);
     const supabase = createClient();
-    // Always return to the origin the user is actually on (prod, preview, or
-    // localhost) — never a hard-coded URL. This avoids redirecting a deployed
-    // login back to localhost.
     const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -31,13 +28,13 @@ function LoginCard() {
 
   return (
     <div className="login-wrap">
-      <div className="login-card">
-        <div className="brand login-brand">
-          <span className="brand-mark">⏱</span>
-          <span className="brand-name">TimeIT</span>
-        </div>
-        <h1>Track your team&apos;s time</h1>
-        <p className="login-sub">Sign in with your work Google account to get started.</p>
+      <div className="login-card glass">
+        {/* Logo: clock graphic, separate from the wordmark */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="login-logo" src="/icons/logo-clock.svg" alt="On-time clock logo" />
+
+        <div className="login-word">TimeIT</div>
+        <p className="login-tagline">The Official LeadersBrands Time Tracker</p>
 
         {error && <div className="login-error">{decodeURIComponent(error)}</div>}
 
@@ -51,7 +48,7 @@ function LoginCard() {
           {loading ? 'Redirecting…' : 'Continue with Google'}
         </button>
 
-        <p className="login-foot">Access is limited to your organization&apos;s accounts.</p>
+        <p className="login-note">Use your work email to get started.</p>
       </div>
     </div>
   );

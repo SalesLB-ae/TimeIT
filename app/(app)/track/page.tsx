@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { getMyProfile } from '@/lib/db';
 import { TrackClient } from './TrackClient';
 
 export default async function TrackPage() {
@@ -6,5 +7,11 @@ export default async function TrackPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return <TrackClient userId={user!.id} />;
+  let team = null;
+  try {
+    team = (await getMyProfile(supabase, user!.id))?.team ?? null;
+  } catch {
+    /* no profile yet */
+  }
+  return <TrackClient userId={user!.id} myTeam={team} />;
 }

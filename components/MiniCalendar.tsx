@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { fetchTeamEntriesBetween } from '@/lib/db';
+import { fetchMyEntriesBetween } from '@/lib/db';
 import { ymd, monthMatrix, matrixRange, WEEKDAYS, MONTHS } from '@/lib/calendar';
 
-// Compact month calendar for the sidebar. Days with team activity show a dot;
-// clicking a day opens the Calendar view for that date.
-export function MiniCalendar() {
+// Compact month calendar for the sidebar. Days where YOU logged time show a
+// dot; clicking a day opens the Calendar view for that date. Private to you.
+export function MiniCalendar({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const pathname = usePathname();
@@ -25,7 +25,7 @@ export function MiniCalendar() {
   useEffect(() => {
     let cancelled = false;
     const { startIso, endIso } = matrixRange(year, month);
-    fetchTeamEntriesBetween(supabase, startIso, endIso)
+    fetchMyEntriesBetween(supabase, userId, startIso, endIso)
       .then((entries) => {
         if (cancelled) return;
         const days = new Set<string>();
@@ -36,7 +36,7 @@ export function MiniCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [supabase, year, month]);
+  }, [supabase, userId, year, month]);
 
   const cells = monthMatrix(year, month);
 

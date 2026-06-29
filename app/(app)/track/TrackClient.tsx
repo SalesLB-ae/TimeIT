@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
-import type { Project, TimeEntry } from '@/lib/types';
+import type { Project, Team, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
 import { teamMeta } from '@/lib/teams';
 import { EntryModal, type EntryDraft } from '@/components/EntryModal';
 
-export function TrackClient({ userId }: { userId: string }) {
+const ADD_NEW = '__add_new__';
+
+export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team | null }) {
   const supabase = useMemo(() => createClient(), []);
   const [projects, setProjects] = useState<Project[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
@@ -83,6 +85,16 @@ export function TrackClient({ userId }: { userId: string }) {
     }
   }
   async function changeProject(value: string) {
+    // The dropdown's last option lets you create a category on the spot.
+    if (value === ADD_NEW) {
+      const name = window.prompt('New project / category name:')?.trim();
+      if (!name) return;
+      const created = await db.createProject(supabase, name, randomColor(name), userId, myTeam);
+      await reload();
+      setProjectId(created.id);
+      if (running) await db.updateEntry(supabase, running.id, { project_id: created.id });
+      return;
+    }
     setProjectId(value);
     if (running) {
       await db.updateEntry(supabase, running.id, { project_id: value || null });
@@ -134,11 +146,35 @@ export function TrackClient({ userId }: { userId: string }) {
         <div className="page-title">Track</div>
       </div>
       <div className="timer-card glass">
+        <div className="timer-primary">
+          <select
+            className="category-select"
+            value={projectId}
+            onChange={(e) => changeProject(e.target.value)}
+            aria-label="What are you working on?"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+            <option disabled>──────────</option>
+            <option value={ADD_NEW}>➕ Add new…</option>
+          </select>
+          <div className="timer-readout">{Fmt.duration(runningElapsed)}</div>
+          <button
+            className={'start-btn' + (running ? ' is-running' : '')}
+            onClick={toggleTimer}
+            aria-label={running ? 'Stop timer' : 'Start timer'}
+          >
+            <span>{running ? '■' : '▶'}</span>
+          </button>
+        </div>
         <input
           ref={descRef}
           type="text"
-          className="timer-input"
-          placeholder="What are you working on?"
+          className="timer-note"
+          placeholder="Add a note (optional) — what are you working on?"
           value={description}
           autoComplete="off"
           onChange={(e) => setDescription(e.target.value)}
@@ -150,28 +186,6 @@ export function TrackClient({ userId }: { userId: string }) {
             }
           }}
         />
-        <div className="timer-controls">
-          <select
-            className="project-select"
-            value={projectId}
-            onChange={(e) => changeProject(e.target.value)}
-            aria-label="Project"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <div className="timer-readout">{Fmt.duration(runningElapsed)}</div>
-          <button
-            className={'start-btn' + (running ? ' is-running' : '')}
-            onClick={toggleTimer}
-            aria-label={running ? 'Stop timer' : 'Start timer'}
-          >
-            <span>{running ? '■' : '▶'}</span>
-          </button>
-        </div>
       </div>
 
       <div className="manual-add">
@@ -272,6 +286,14 @@ export function TrackClient({ userId }: { userId: string }) {
       )}
     </section>
   );
+}
+
+// Deterministic pleasant color for a quick-added category (so it's stable).
+function randomColor(seed: string): string {
+  const palette = ['#2f6df6', '#2bb673', '#e5a23c', '#e5484d', '#6c5ce7', '#34b3c4', '#e36fb0'];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
 }
 
 type DayEntry = TimeEntry & { startMs: number; endMs: number };

@@ -3,12 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
-import type { Project, TimeEntryWithUser } from '@/lib/types';
-import { teamMeta } from '@/lib/teams';
+import type { Project, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
 
 type Range = 'day' | 'week' | 'month';
-type Grouping = 'project' | 'person' | 'team';
 
 function rangeStart(range: Range): number {
   const d = new Date();
@@ -28,13 +26,10 @@ interface Row {
   ms: number;
 }
 
-const PALETTE = ['#4f86f7', '#2bb673', '#e5a23c', '#e5484d', '#9b6fe8', '#34b3c4', '#e36fb0'];
-
-export function ReportsClient() {
+export function ReportsClient({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [range, setRange] = useState<Range>('week');
-  const [grouping, setGrouping] = useState<Grouping>('project');
-  const [entries, setEntries] = useState<TimeEntryWithUser[]>([]);
+  const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,71 +37,45 @@ export function ReportsClient() {
     setLoading(true);
     const since = new Date(rangeStart(range)).toISOString();
     const [data, projs] = await Promise.all([
-      db.fetchTeamEntriesSince(supabase, since),
+      db.fetchMyEntriesSince(supabase, userId, since),
       db.fetchProjects(supabase),
     ]);
     setEntries(data);
     setProjects(projs);
     setLoading(false);
-  }, [supabase, range]);
+  }, [supabase, userId, range]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
+  // Your time grouped by project.
   const { total, rows } = useMemo(() => {
     const projectById = new Map(projects.map((p) => [p.id, p]));
     let total = 0;
     const acc = new Map<string, Row>();
-    let personColorIdx = 0;
-    const personColors = new Map<string, string>();
-
     for (const e of entries) {
       if (!e.ended_at) continue;
       const ms = new Date(e.ended_at).getTime() - new Date(e.started_at).getTime();
       total += ms;
-
-      let key: string;
-      let name: string;
-      let color: string;
-      if (grouping === 'project') {
-        const p = e.project_id ? projectById.get(e.project_id) : undefined;
-        key = e.project_id ?? 'none';
-        name = p?.name ?? 'No project';
-        color = p?.color ?? '#99a3ad';
-      } else if (grouping === 'team') {
-        const meta = teamMeta(e.profiles?.team);
-        key = meta?.key ?? 'none';
-        name = meta?.label ?? 'No team';
-        color = meta?.color ?? '#99a3ad';
-      } else {
-        name = e.profiles?.full_name || e.profiles?.email || 'Unknown';
-        key = name;
-        if (!personColors.has(key)) {
-          personColors.set(key, PALETTE[personColorIdx % PALETTE.length]);
-          personColorIdx++;
-        }
-        color = personColors.get(key)!;
-      }
-
+      const p = e.project_id ? projectById.get(e.project_id) : undefined;
+      const key = e.project_id ?? 'none';
       const existing = acc.get(key);
       if (existing) existing.ms += ms;
-      else acc.set(key, { name, color, ms });
+      else acc.set(key, { name: p?.name ?? 'No project', color: p?.color ?? '#99a3ad', ms });
     }
-
     return { total, rows: Array.from(acc.values()).sort((a, b) => b.ms - a.ms) };
-  }, [entries, projects, grouping]);
+  }, [entries, projects]);
 
   function exportCsv() {
     const projectById = new Map(projects.map((p) => [p.id, p]));
-    const rowsCsv = [['User', 'Project', 'Description', 'Start', 'End', 'Duration (h)']];
+    const rowsCsv = [['Project', 'Description', 'Start', 'End', 'Duration (h)']];
     for (const e of entries) {
       if (!e.ended_at) continue;
       const hours = (
         (new Date(e.ended_at).getTime() - new Date(e.started_at).getTime()) / 3600000
       ).toFixed(2);
       rowsCsv.push([
-        e.profiles?.full_name || e.profiles?.email || 'Unknown',
         (e.project_id && projectById.get(e.project_id)?.name) || '',
         e.description || '',
         new Date(e.started_at).toLocaleString(),
@@ -147,20 +116,8 @@ export function ReportsClient() {
       </div>
 
       <div className="report-total glass">
-        <span className="report-total-label">Team total</span>
+        <span className="report-total-label">Your total</span>
         <span className="report-total-value">{Fmt.duration(total)}</span>
-      </div>
-
-      <div className="range-picker group-toggle">
-        {(['project', 'person', 'team'] as Grouping[]).map((g) => (
-          <button
-            key={g}
-            className={'chip' + (grouping === g ? ' is-active' : '')}
-            onClick={() => setGrouping(g)}
-          >
-            {g === 'project' ? 'By project' : g === 'person' ? 'By person' : 'By team'}
-          </button>
-        ))}
       </div>
 
       <div className="report-breakdown">
