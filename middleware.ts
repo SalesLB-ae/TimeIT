@@ -5,9 +5,19 @@ import { NextResponse, type NextRequest } from 'next/server';
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  // If the app isn't configured yet (e.g. env vars missing on the host),
+  // don't crash the whole site — just pass the request through.
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('Supabase env vars are not set; skipping auth middleware.');
+    return response;
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseKey,
     {
       cookies: {
         getAll() {
@@ -24,9 +34,15 @@ export async function middleware(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (err) {
+    // Never let an auth hiccup turn into a site-wide 500.
+    console.error('Auth check failed in middleware:', err);
+    return response;
+  }
 
   const { pathname } = request.nextUrl;
   const isAuthRoute = pathname === '/login' || pathname.startsWith('/auth');
