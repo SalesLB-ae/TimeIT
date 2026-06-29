@@ -12,11 +12,14 @@ function LoginCard() {
   async function signInWithGoogle() {
     setLoading(true);
     const supabase = createClient();
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin;
+    // Always return to the origin the user is actually on (prod, preview, or
+    // localhost) — never a hard-coded URL. This avoids redirecting a deployed
+    // login back to localhost.
+    const redirectTo = `${window.location.origin}/auth/callback`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${siteUrl}/auth/callback`,
+        redirectTo,
         queryParams: { access_type: 'offline', prompt: 'select_account' },
       },
     });
