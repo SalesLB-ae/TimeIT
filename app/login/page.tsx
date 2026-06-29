@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { Banner } from '@/components/Banner';
 
 function LoginCard() {
   const [loading, setLoading] = useState(false);
@@ -30,7 +29,6 @@ function LoginCard() {
   return (
     <div className="login-wrap">
       <div className="login-card glass">
-        <Banner variant="login" />
         {/* Logo: clock graphic, separate from the wordmark */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img className="login-logo" src="/icons/logo-clock.svg" alt="On-time clock logo" />
