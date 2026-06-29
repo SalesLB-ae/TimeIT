@@ -6,6 +6,15 @@ import { SUPABASE_URL, SUPABASE_KEY } from '@/lib/supabase/config';
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // If an OAuth code lands on the root path (e.g. Supabase's Site URL has no
+  // /auth/callback path), forward it to the callback handler so login still
+  // completes instead of dead-ending on the home page.
+  if (request.nextUrl.pathname === '/' && request.nextUrl.searchParams.has('code')) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/callback';
+    return NextResponse.redirect(url);
+  }
+
   // If the app isn't configured yet (e.g. env vars missing on the host),
   // don't crash the whole site — just pass the request through.
   if (!SUPABASE_URL || !SUPABASE_KEY) {
