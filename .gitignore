@@ -1,9 +1,16 @@
 node_modules/
 .next/
 out/
+# Env files — never commit secrets. Covers .env.local AND env.local (no dot),
+# .env.production, etc.
 .env
-.env.local
-.env*.local
+.env.*
+*.env
+env.local
+env.*.local
+# ...but DO keep the committed template(s).
+!.env.example
+!.env.local.example
 .vercel
 *.tsbuildinfo
 next-env.d.ts
