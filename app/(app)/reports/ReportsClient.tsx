@@ -1,0 +1,191 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import * as db from '@/lib/db';
+import type { Project, TimeEntryWithUser } from '@/lib/types';
+import * as Fmt from '@/lib/format';
+
+type Range = 'day' | 'week' | 'month';
+type Grouping = 'project' | 'person';
+
+function rangeStart(range: Range): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  if (range === 'week') {
+    const day = (d.getDay() + 6) % 7; // Monday start
+    d.setDate(d.getDate() - day);
+  } else if (range === 'month') {
+    d.setDate(1);
+  }
+  return d.getTime();
+}
+
+interface Row {
+  name: string;
+  color: string;
+  ms: number;
+}
+
+const PALETTE = ['#4f86f7', '#2bb673', '#e5a23c', '#e5484d', '#9b6fe8', '#34b3c4', '#e36fb0'];
+
+export function ReportsClient() {
+  const supabase = useMemo(() => createClient(), []);
+  const [range, setRange] = useState<Range>('week');
+  const [grouping, setGrouping] = useState<Grouping>('project');
+  const [entries, setEntries] = useState<TimeEntryWithUser[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const since = new Date(rangeStart(range)).toISOString();
+    const [data, projs] = await Promise.all([
+      db.fetchTeamEntriesSince(supabase, since),
+      db.fetchProjects(supabase),
+    ]);
+    setEntries(data);
+    setProjects(projs);
+    setLoading(false);
+  }, [supabase, range]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const { total, rows } = useMemo(() => {
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+    let total = 0;
+    const acc = new Map<string, Row>();
+    let personColorIdx = 0;
+    const personColors = new Map<string, string>();
+
+    for (const e of entries) {
+      if (!e.ended_at) continue;
+      const ms = new Date(e.ended_at).getTime() - new Date(e.started_at).getTime();
+      total += ms;
+
+      let key: string;
+      let name: string;
+      let color: string;
+      if (grouping === 'project') {
+        const p = e.project_id ? projectById.get(e.project_id) : undefined;
+        key = e.project_id ?? 'none';
+        name = p?.name ?? 'No project';
+        color = p?.color ?? '#99a3ad';
+      } else {
+        name = e.profiles?.full_name || e.profiles?.email || 'Unknown';
+        key = name;
+        if (!personColors.has(key)) {
+          personColors.set(key, PALETTE[personColorIdx % PALETTE.length]);
+          personColorIdx++;
+        }
+        color = personColors.get(key)!;
+      }
+
+      const existing = acc.get(key);
+      if (existing) existing.ms += ms;
+      else acc.set(key, { name, color, ms });
+    }
+
+    return { total, rows: Array.from(acc.values()).sort((a, b) => b.ms - a.ms) };
+  }, [entries, projects, grouping]);
+
+  function exportCsv() {
+    const projectById = new Map(projects.map((p) => [p.id, p]));
+    const rowsCsv = [['User', 'Project', 'Description', 'Start', 'End', 'Duration (h)']];
+    for (const e of entries) {
+      if (!e.ended_at) continue;
+      const hours = (
+        (new Date(e.ended_at).getTime() - new Date(e.started_at).getTime()) / 3600000
+      ).toFixed(2);
+      rowsCsv.push([
+        e.profiles?.full_name || e.profiles?.email || 'Unknown',
+        (e.project_id && projectById.get(e.project_id)?.name) || '',
+        e.description || '',
+        new Date(e.started_at).toLocaleString(),
+        new Date(e.ended_at).toLocaleString(),
+        hours,
+      ]);
+    }
+    const csv = rowsCsv.map((r) => r.map(csvCell).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `timeit-${range}-${Fmt.dayKey(Date.now())}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <section className="view">
+      <div className="report-controls">
+        <div className="range-picker">
+          {(['day', 'week', 'month'] as Range[]).map((r) => (
+            <button
+              key={r}
+              className={'chip' + (range === r ? ' is-active' : '')}
+              onClick={() => setRange(r)}
+            >
+              {r === 'day' ? 'Today' : r === 'week' ? 'This week' : 'This month'}
+            </button>
+          ))}
+        </div>
+        <button className="link-btn" onClick={exportCsv}>
+          Export CSV
+        </button>
+      </div>
+
+      <div className="report-total">
+        <span className="report-total-label">Team total</span>
+        <span className="report-total-value">{Fmt.duration(total)}</span>
+      </div>
+
+      <div className="range-picker group-toggle">
+        {(['project', 'person'] as Grouping[]).map((g) => (
+          <button
+            key={g}
+            className={'chip' + (grouping === g ? ' is-active' : '')}
+            onClick={() => setGrouping(g)}
+          >
+            {g === 'project' ? 'By project' : 'By person'}
+          </button>
+        ))}
+      </div>
+
+      <div className="report-breakdown">
+        {loading ? (
+          <p className="empty-state">Loading…</p>
+        ) : total === 0 ? (
+          <p className="empty-state">No time tracked in this range yet.</p>
+        ) : (
+          rows.map((row) => (
+            <div className="report-row" key={row.name}>
+              <span className="entry-dot" style={{ background: row.color }} />
+              <div className="report-bar-wrap">
+                <div className="report-bar-top">
+                  <span className="report-bar-name">{row.name}</span>
+                  <span className="report-bar-time">
+                    {Fmt.durationShort(row.ms)} · {Math.round((row.ms / total) * 100)}%
+                  </span>
+                </div>
+                <div className="report-bar">
+                  <div
+                    className="report-bar-fill"
+                    style={{ width: (row.ms / total) * 100 + '%', background: row.color }}
+                  />
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  );
+}
+
+function csvCell(value: string): string {
+  const s = String(value);
+  return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
