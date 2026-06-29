@@ -44,6 +44,20 @@ body {
   border-radius: var(--radius);
 }
 
+/* ---------- Brand banner ---------- */
+.brand-banner {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  background-color: #1a1a22; /* fallback if the image is missing */
+  background-image: url('/leadersbrands-banner.jpg');
+  background-size: cover;
+  background-position: center;
+}
+.brand-banner--app { height: 88px; margin-bottom: 18px; }
+.brand-banner--login { height: 120px; margin-bottom: 22px; }
+
 /* ---------- App shell ---------- */
 .shell { display: flex; min-height: 100vh; gap: 18px; padding: 18px; }
 .sidebar {
@@ -126,20 +140,21 @@ body {
 /* ---------- Timer card ---------- */
 .timer-card { padding: 18px; }
 .timer-primary { display: flex; align-items: center; gap: 12px; }
-/* Borderless, blends into the card — a clickable "title" with a soft chevron. */
+/* Compact, frosted to match the theme — a soft pill with a subtle chevron. */
 .category-select {
   flex: 1; min-width: 0;
-  font-size: 19px; font-weight: 600; color: var(--text);
-  border: none; background-color: transparent;
-  border-radius: 12px; padding: 8px 36px 8px 12px; margin-left: -6px;
+  font-size: 15px; font-weight: 600; color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  background-color: rgba(255, 255, 255, 0.32);
+  border-radius: 10px; padding: 9px 32px 9px 12px;
   cursor: pointer; outline: none;
   appearance: none; -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232f6df6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-  background-repeat: no-repeat; background-position: right 12px center;
-  transition: background-color 0.15s;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232f6df6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 11px center;
+  transition: background-color 0.15s, border-color 0.15s;
 }
-.category-select:hover { background-color: rgba(255, 255, 255, 0.5); }
-.category-select:focus-visible { background-color: rgba(255, 255, 255, 0.6); }
+.category-select:hover { background-color: rgba(255, 255, 255, 0.46); }
+.category-select:focus-visible { border-color: var(--accent); }
 .timer-note {
   width: 100%; margin-top: 12px; border: 1px solid var(--glass-border);
   background: rgba(255, 255, 255, 0.45); color: var(--text);
@@ -226,10 +241,12 @@ body {
 }
 .project-form input[type="text"]:focus { border-color: var(--accent); }
 .project-form input[type="color"] { width: 46px; padding: 4px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: rgba(255,255,255,0.65); cursor: pointer; }
-.project-manage-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.project-manage-row { display: flex; align-items: center; gap: 12px; padding: 12px 15px; }
-.project-manage-row .entry-dot { width: 14px; height: 14px; }
-.project-manage-name { flex: 1; font-weight: 600; }
+.project-manage-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.project-manage-row { display: flex; align-items: center; gap: 10px; padding: 8px 13px; }
+.project-manage-row .entry-dot { width: 11px; height: 11px; }
+.project-manage-name { flex: 1; font-weight: 600; font-size: 14px; }
+.project-manage-row .team-badge { font-size: 10px; padding: 2px 8px; }
+.project-delete { font-size: 16px; }
 .project-delete { background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 18px; padding: 4px 8px; border-radius: 8px; }
 .project-delete:hover { background: rgba(255,255,255,0.6); color: var(--danger); }
 

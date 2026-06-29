@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getMyProfile } from '@/lib/db';
 import { Sidebar } from './Sidebar';
+import { Banner } from '@/components/Banner';
 import type { Role, Team } from '@/lib/types';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -40,7 +41,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         team={team}
         role={role}
       />
-      <main className="content">{children}</main>
+      <main className="content">
+        <Banner />
+        {children}
+      </main>
     </div>
   );
 }
