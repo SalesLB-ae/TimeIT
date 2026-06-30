@@ -149,9 +149,20 @@ body {
 .timer-note::placeholder { color: var(--text-dim); }
 .timer-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 .project-select, .filter-select {
-  border: 1px solid var(--glass-border); background: rgba(255,255,255,0.6); color: var(--text);
-  border-radius: var(--radius-sm); padding: 9px 11px; font-size: 14px; cursor: pointer; outline: none;
+  appearance: none; -webkit-appearance: none;
+  border: 1px solid var(--glass-border);
+  background-color: rgba(255, 255, 255, 0.38);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  box-shadow: var(--glass-inset);
+  color: var(--text); border-radius: var(--radius-sm);
+  padding: 9px 32px 9px 12px; font-size: 14px; cursor: pointer; outline: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232f6df6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 11px center;
+  transition: background-color 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
+.project-select:hover, .filter-select:hover { background-color: rgba(255, 255, 255, 0.55); }
+.project-select:focus-visible, .filter-select:focus-visible { border-color: var(--accent); }
 .timer-readout {
   margin-left: auto; font-variant-numeric: tabular-nums; font-size: 24px;
   font-weight: 700; letter-spacing: 0.5px; min-width: 104px; text-align: right;

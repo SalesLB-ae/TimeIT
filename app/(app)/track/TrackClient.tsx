@@ -9,7 +9,6 @@ import { EntryModal, type EntryDraft } from '@/components/EntryModal';
 import { EntryRow, type EntrySaveFields } from '@/components/EntryRow';
 
 const ADD_NEW = '__add_new__';
-const DENSITY_KEY = 'timeit.density';
 type Scope = 'all' | 'today' | 'yesterday' | 'week';
 
 function randomColor(seed: string): string {
@@ -29,7 +28,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const [projectId, setProjectId] = useState('');
   const [now, setNow] = useState(() => Date.now());
 
-  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [scope, setScope] = useState<Scope>('all');
   const [filterProject, setFilterProject] = useState('all');
   const [filterBillable, setFilterBillable] = useState(false);
@@ -57,7 +55,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
 
   useEffect(() => {
     reload();
-    setDensity((localStorage.getItem(DENSITY_KEY) as 'comfortable' | 'compact') || 'comfortable');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -83,11 +80,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open?.id]);
-
-  function setDensityPersist(d: 'comfortable' | 'compact') {
-    setDensity(d);
-    localStorage.setItem(DENSITY_KEY, d);
-  }
 
   // Suggest the project last used for a matching description (don't auto-apply).
   const lastProjectFor = useMemo(() => {
@@ -238,13 +230,9 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const liveMs = open ? Fmt.liveEntryMs(open, now) : 0;
 
   return (
-    <section className={'view track-view density-' + density}>
+    <section className="view track-view density-compact">
       <div className="page-head">
         <div className="page-title">Track</div>
-        <div className="density-toggle">
-          <button className={'chip' + (density === 'comfortable' ? ' is-active' : '')} onClick={() => setDensityPersist('comfortable')}>Comfortable</button>
-          <button className={'chip' + (density === 'compact' ? ' is-active' : '')} onClick={() => setDensityPersist('compact')}>Compact</button>
-        </div>
       </div>
 
       {/* ---- Composer / running timer ---- */}
