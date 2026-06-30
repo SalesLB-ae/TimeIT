@@ -7,57 +7,73 @@ import type { Project, Team, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
 import { ImportModal } from '@/components/ImportModal';
 
-type Range = 'day' | 'week' | 'month';
+type Preset =
+  | 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'custom';
 
-// Compute the period [start, end) and a label for the chosen range + offset
-// (offset 0 = current; negative = past).
-function period(range: Range, offset: number): { start: Date; end: Date; label: string } {
-  if (range === 'day') {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() + offset);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return {
-      start,
-      end,
-      label: start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-    };
-  }
-  if (range === 'week') {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
-    const dow = (start.getDay() + 6) % 7;
-    start.setDate(start.getDate() - dow + offset * 7);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 7);
-    const last = new Date(end);
-    last.setDate(last.getDate() - 1);
-    const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    return { start, end, label: `${fmt(start)} – ${fmt(last)}` };
-  }
-  const now = new Date();
-  const start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 1);
-  return { start, end, label: start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) };
+const PRESETS: { key: Preset; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'yesterday', label: 'Yesterday' },
+  { key: 'this_week', label: 'This Week' },
+  { key: 'last_week', label: 'Last Week' },
+  { key: 'this_month', label: 'This Month' },
+  { key: 'last_month', label: 'Last Month' },
+  { key: 'custom', label: 'Custom' },
+];
+
+function startOfWeek(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
 }
 
-interface Row {
-  name: string;
-  color: string;
-  ms: number;
+// [start, end) for a preset (or custom from/to YYYY-MM-DD).
+function periodFor(preset: Preset, from: string, to: string): { start: Date; end: Date } {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dayAfter = (d: Date) => { const e = new Date(d); e.setDate(e.getDate() + 1); return e; };
+
+  switch (preset) {
+    case 'today': return { start: today, end: dayAfter(today) };
+    case 'yesterday': {
+      const y = new Date(today); y.setDate(y.getDate() - 1);
+      return { start: y, end: today };
+    }
+    case 'this_week': {
+      const s = startOfWeek(today); const e = new Date(s); e.setDate(e.getDate() + 7);
+      return { start: s, end: e };
+    }
+    case 'last_week': {
+      const s = startOfWeek(today); s.setDate(s.getDate() - 7);
+      const e = new Date(s); e.setDate(e.getDate() + 7);
+      return { start: s, end: e };
+    }
+    case 'this_month':
+      return { start: new Date(today.getFullYear(), today.getMonth(), 1), end: new Date(today.getFullYear(), today.getMonth() + 1, 1) };
+    case 'last_month':
+      return { start: new Date(today.getFullYear(), today.getMonth() - 1, 1), end: new Date(today.getFullYear(), today.getMonth(), 1) };
+    case 'custom': {
+      const s = from ? new Date(from + 'T00:00') : today;
+      const e = to ? new Date(to + 'T00:00') : today;
+      e.setDate(e.getDate() + 1);
+      return { start: s, end: e };
+    }
+  }
 }
+
+interface Row { name: string; color: string; ms: number }
 
 export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team | null }) {
   const supabase = useMemo(() => createClient(), []);
-  const [range, setRange] = useState<Range>('week');
-  const [offset, setOffset] = useState(0);
+  const [preset, setPreset] = useState<Preset>('this_week');
+  const [from, setFrom] = useState(Fmt.dayKey(Date.now()));
+  const [to, setTo] = useState(Fmt.dayKey(Date.now()));
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
 
-  const { start, end, label } = useMemo(() => period(range, offset), [range, offset]);
+  const { start, end } = useMemo(() => periodFor(preset, from, to), [preset, from, to]);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -70,43 +86,36 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
     setLoading(false);
   }, [supabase, userId, start, end]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
-
-  function setRangeReset(r: Range) {
-    setRange(r);
-    setOffset(0);
-  }
+  useEffect(() => { reload(); }, [reload]);
 
   const { total, rows } = useMemo(() => {
-    const projectById = new Map(projects.map((p) => [p.id, p]));
+    const byId = new Map(projects.map((p) => [p.id, p]));
     let total = 0;
     const acc = new Map<string, Row>();
     for (const e of entries) {
       if (!e.ended_at) continue;
       const ms = new Date(e.ended_at).getTime() - new Date(e.started_at).getTime();
       total += ms;
-      const p = e.project_id ? projectById.get(e.project_id) : undefined;
+      const p = e.project_id ? byId.get(e.project_id) : undefined;
       const key = e.project_id ?? 'none';
-      const existing = acc.get(key);
-      if (existing) existing.ms += ms;
+      const ex = acc.get(key);
+      if (ex) ex.ms += ms;
       else acc.set(key, { name: p?.name ?? 'No project', color: p?.color ?? '#99a3ad', ms });
     }
     return { total, rows: Array.from(acc.values()).sort((a, b) => b.ms - a.ms) };
   }, [entries, projects]);
 
   function exportCsv() {
-    const projectById = new Map(projects.map((p) => [p.id, p]));
-    const rowsCsv = [['Project', 'Description', 'Start', 'End', 'Duration (h)']];
+    const byId = new Map(projects.map((p) => [p.id, p]));
+    const rowsCsv = [['Project', 'Description', 'Tags', 'Billable', 'Start', 'End', 'Duration (h)']];
     for (const e of entries) {
       if (!e.ended_at) continue;
-      const hours = (
-        (new Date(e.ended_at).getTime() - new Date(e.started_at).getTime()) / 3600000
-      ).toFixed(2);
+      const hours = ((new Date(e.ended_at).getTime() - new Date(e.started_at).getTime()) / 3600000).toFixed(2);
       rowsCsv.push([
-        (e.project_id && projectById.get(e.project_id)?.name) || '',
+        (e.project_id && byId.get(e.project_id)?.name) || '',
         e.description || '',
+        (e.tags ?? []).join('; '),
+        e.billable ? 'Yes' : 'No',
         new Date(e.started_at).toISOString(),
         new Date(e.ended_at).toISOString(),
         hours,
@@ -117,7 +126,7 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `timeit-${range}-${Fmt.dayKey(start.getTime())}.csv`;
+    a.download = `timeit-${preset}-${Fmt.dayKey(start.getTime())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -134,30 +143,20 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
 
       <div className="report-controls">
         <div className="range-picker">
-          {(['day', 'week', 'month'] as Range[]).map((r) => (
-            <button
-              key={r}
-              className={'chip' + (range === r ? ' is-active' : '')}
-              onClick={() => setRangeReset(r)}
-            >
-              {r === 'day' ? 'Day' : r === 'week' ? 'Week' : 'Month'}
+          {PRESETS.map((p) => (
+            <button key={p.key} className={'chip chip-sm' + (preset === p.key ? ' is-active' : '')} onClick={() => setPreset(p.key)}>
+              {p.label}
             </button>
           ))}
         </div>
-        {/* Move between dates / weeks / months */}
-        <div className="period-nav">
-          <button className="cal-nav" onClick={() => setOffset((o) => o - 1)} aria-label="Previous">‹</button>
-          <span className="period-label">{label}</span>
-          <button
-            className="cal-nav"
-            onClick={() => setOffset((o) => Math.min(0, o + 1))}
-            disabled={offset >= 0}
-            aria-label="Next"
-          >
-            ›
-          </button>
-        </div>
       </div>
+
+      {preset === 'custom' && (
+        <div className="custom-range">
+          <label>From<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+          <label>To<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+        </div>
+      )}
 
       <div className="report-total glass">
         <span className="report-total-label">Your total</span>
@@ -176,15 +175,10 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
               <div className="report-bar-wrap">
                 <div className="report-bar-top">
                   <span className="report-bar-name">{row.name}</span>
-                  <span className="report-bar-time">
-                    {Fmt.durationShort(row.ms)} · {Math.round((row.ms / total) * 100)}%
-                  </span>
+                  <span className="report-bar-time">{Fmt.durationShort(row.ms)} · {Math.round((row.ms / total) * 100)}%</span>
                 </div>
                 <div className="report-bar">
-                  <div
-                    className="report-bar-fill"
-                    style={{ width: (row.ms / total) * 100 + '%', background: row.color }}
-                  />
+                  <div className="report-bar-fill" style={{ width: (row.ms / total) * 100 + '%', background: row.color }} />
                 </div>
               </div>
             </div>
@@ -198,10 +192,7 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
           myTeam={myTeam}
           projects={projects}
           onClose={() => setImporting(false)}
-          onImported={() => {
-            setImporting(false);
-            reload();
-          }}
+          onImported={() => { setImporting(false); reload(); }}
         />
       )}
     </section>

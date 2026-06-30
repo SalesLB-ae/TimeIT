@@ -5,10 +5,19 @@ import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
 import type { Project, Team, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
-import { teamMeta } from '@/lib/teams';
 import { EntryModal, type EntryDraft } from '@/components/EntryModal';
+import { EntryRow, type EntrySaveFields } from '@/components/EntryRow';
 
 const ADD_NEW = '__add_new__';
+const DENSITY_KEY = 'timeit.density';
+type Scope = 'all' | 'today' | 'yesterday' | 'week';
+
+function randomColor(seed: string): string {
+  const palette = ['#2f6df6', '#2bb673', '#e5a23c', '#e5484d', '#6c5ce7', '#34b3c4', '#e36fb0'];
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
 
 export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team | null }) {
   const supabase = useMemo(() => createClient(), []);
@@ -17,10 +26,17 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const [loading, setLoading] = useState(true);
 
   const [description, setDescription] = useState('');
-  const [projectId, setProjectId] = useState<string>('');
+  const [projectId, setProjectId] = useState('');
   const [now, setNow] = useState(() => Date.now());
 
+  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  const [scope, setScope] = useState<Scope>('all');
+  const [filterProject, setFilterProject] = useState('all');
+  const [filterBillable, setFilterBillable] = useState(false);
+  const [filterTag, setFilterTag] = useState('all');
+
   const [modalEntry, setModalEntry] = useState<EntryDraft | null>(null);
+  const [pending, setPending] = useState<{ entry: TimeEntry; timer: ReturnType<typeof setTimeout> } | null>(null);
   const descRef = useRef<HTMLInputElement>(null);
 
   const running = entries.find((e) => e.ended_at === null) ?? null;
@@ -38,13 +54,14 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
 
   useEffect(() => {
     reload();
+    setDensity((localStorage.getItem(DENSITY_KEY) as 'comfortable' | 'compact') || 'comfortable');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Tick the running readout once per second + keep the tab title live.
+  // Live tick + tab title while running.
   useEffect(() => {
     if (!running) {
-      document.title = 'TimeIT — team time tracking';
+      document.title = 'TimeIT — LeadersBrands Time Tracker';
       return;
     }
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -53,13 +70,10 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   }, [running?.id]);
 
   useEffect(() => {
-    if (running) {
-      const elapsed = now - new Date(running.started_at).getTime();
-      document.title = Fmt.duration(elapsed) + ' · TimeIT';
-    }
+    if (running) document.title = Fmt.duration(now - new Date(running.started_at).getTime()) + ' · TimeIT';
   }, [now, running]);
 
-  // Reflect the running entry into the inputs.
+  // Mirror the running entry into the composer.
   useEffect(() => {
     if (running) {
       if (document.activeElement !== descRef.current) setDescription(running.description);
@@ -68,24 +82,48 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running?.id]);
 
-  async function toggleTimer() {
-    if (running) {
-      await db.stopTimer(supabase, running.id);
-    } else {
-      await db.startTimer(supabase, userId, description, projectId || null);
-      setDescription('');
-    }
-    await reload();
+  function setDensityPersist(d: 'comfortable' | 'compact') {
+    setDensity(d);
+    localStorage.setItem(DENSITY_KEY, d);
   }
 
-  // Persist description/project edits while the timer runs (debounced-ish on blur/change).
-  async function commitRunningDescription() {
-    if (running && running.description !== description) {
-      await db.updateEntry(supabase, running.id, { description });
+  // Suggest the project last used for a matching description (don't auto-apply).
+  const lastProjectFor = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const e of [...entries].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())) {
+      if (e.description && e.project_id) map.set(e.description.trim().toLowerCase(), e.project_id);
     }
+    return map;
+  }, [entries]);
+  const suggestedProject =
+    !running && description.trim()
+      ? (() => {
+          const id = lastProjectFor.get(description.trim().toLowerCase());
+          return id && id !== projectId ? projects.find((p) => p.id === id) ?? null : null;
+        })()
+      : null;
+
+  async function start() {
+    await db.startTimer(supabase, userId, description, projectId || null);
+    setDescription('');
+    await reload();
   }
+  async function stop() {
+    if (running) await db.stopTimer(supabase, running.id);
+    setDescription('');
+    await reload();
+  }
+  async function pause() {
+    // Stop, but keep the description/project staged so Start resumes it.
+    if (!running) return;
+    const { description: d, project_id: pid } = running;
+    await db.stopTimer(supabase, running.id);
+    await reload();
+    setDescription(d);
+    setProjectId(pid ?? '');
+  }
+
   async function changeProject(value: string) {
-    // The dropdown's last option lets you create a category on the spot.
     if (value === ADD_NEW) {
       const name = window.prompt('New project / category name:')?.trim();
       if (!name) return;
@@ -102,113 +140,189 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     }
   }
 
-  async function resume(entry: TimeEntry) {
-    await db.startTimer(supabase, userId, entry.description, entry.project_id);
+  async function commitRunningDescription() {
+    if (running && running.description !== description) {
+      await db.updateEntry(supabase, running.id, { description });
+    }
+  }
+
+  async function continueEntry(e: TimeEntry) {
+    await db.startTimer(supabase, userId, e.description, e.project_id, e.tags ?? []);
     setDescription('');
     await reload();
   }
+  async function duplicate(e: TimeEntry) {
+    await db.duplicateEntry(supabase, userId, e);
+    await reload();
+  }
+  async function saveInline(id: string, fields: EntrySaveFields) {
+    await db.updateEntry(supabase, id, fields);
+    await reload();
+  }
+
+  // Delete with a 5s undo window (optimistic remove, deferred DB delete).
+  function requestDelete(entry: TimeEntry) {
+    if (pending) {
+      clearTimeout(pending.timer);
+      db.deleteEntry(supabase, pending.entry.id);
+    }
+    setEntries((prev) => prev.filter((e) => e.id !== entry.id));
+    const timer = setTimeout(async () => {
+      await db.deleteEntry(supabase, entry.id);
+      setPending(null);
+    }, 5000);
+    setPending({ entry, timer });
+  }
+  function undoDelete() {
+    if (!pending) return;
+    clearTimeout(pending.timer);
+    setEntries((prev) => [pending.entry, ...prev]);
+    setPending(null);
+  }
 
   async function saveModal(draft: EntryDraft) {
+    const startIso = new Date(draft.start).toISOString();
+    const endIso = new Date(draft.end).toISOString();
     if (draft.id) {
       await db.updateEntry(supabase, draft.id, {
-        description: draft.description,
-        project_id: draft.projectId || null,
-        started_at: new Date(draft.start).toISOString(),
-        ended_at: new Date(draft.end).toISOString(),
+        description: draft.description, project_id: draft.projectId || null,
+        started_at: startIso, ended_at: endIso, tags: draft.tags, billable: draft.billable,
       });
     } else {
       await db.addManualEntry(
-        supabase,
-        userId,
-        draft.description,
-        draft.projectId || null,
-        new Date(draft.start).toISOString(),
-        new Date(draft.end).toISOString()
+        supabase, userId, draft.description, draft.projectId || null, startIso, endIso, draft.tags, draft.billable
       );
     }
     setModalEntry(null);
     await reload();
   }
 
-  async function deleteFromModal(id: string) {
-    await db.deleteEntry(supabase, id);
-    setModalEntry(null);
-    await reload();
+  function openManualAdd() {
+    setModalEntry({
+      id: null, description: '', projectId: projects[0]?.id ?? '',
+      start: Fmt.toDatetimeLocal(Date.now() - 3600000), end: Fmt.toDatetimeLocal(Date.now()),
+      tags: [], billable: false,
+    });
   }
 
-  const completed = entries.filter((e) => e.ended_at !== null);
-  const groups = groupByDay(completed);
+  // ---- Filtering ----
+  const allTags = useMemo(() => {
+    const s = new Set<string>();
+    entries.forEach((e) => (e.tags ?? []).forEach((t) => s.add(t)));
+    return Array.from(s).sort();
+  }, [entries]);
+
+  const completed = useMemo(() => {
+    const today = Fmt.dayKey(Date.now());
+    const y = new Date(); y.setDate(y.getDate() - 1);
+    const yKey = Fmt.dayKey(y.getTime());
+    const wkStart = new Date(); wkStart.setHours(0, 0, 0, 0);
+    wkStart.setDate(wkStart.getDate() - ((wkStart.getDay() + 6) % 7));
+    return entries
+      .filter((e) => e.ended_at != null)
+      .filter((e) => {
+        const k = Fmt.dayKey(new Date(e.started_at).getTime());
+        if (scope === 'today') return k === today;
+        if (scope === 'yesterday') return k === yKey;
+        if (scope === 'week') return new Date(e.started_at).getTime() >= wkStart.getTime();
+        return true;
+      })
+      .filter((e) => filterProject === 'all' || e.project_id === filterProject)
+      .filter((e) => !filterBillable || e.billable)
+      .filter((e) => filterTag === 'all' || (e.tags ?? []).includes(filterTag))
+      .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
+  }, [entries, scope, filterProject, filterBillable, filterTag]);
+
+  const groups = useMemo(() => groupByDay(completed), [completed]);
   const runningElapsed = running ? now - new Date(running.started_at).getTime() : 0;
 
   return (
-    <section className="view">
+    <section className={'view track-view density-' + density}>
       <div className="page-head">
         <div className="page-title">Track</div>
-      </div>
-      <div className="timer-card glass">
-        <div className="timer-primary">
-          <select
-            className="category-select"
-            value={projectId}
-            onChange={(e) => changeProject(e.target.value)}
-            aria-label="What are you working on?"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-            <option disabled>──────────</option>
-            <option value={ADD_NEW}>➕ Add new…</option>
-          </select>
-          <div className="timer-readout">{Fmt.duration(runningElapsed)}</div>
-          <button
-            className={'start-btn' + (running ? ' is-running' : '')}
-            onClick={toggleTimer}
-            aria-label={running ? 'Stop timer' : 'Start timer'}
-          >
-            <span>{running ? '■' : '▶'}</span>
-          </button>
+        <div className="density-toggle">
+          <button className={'chip' + (density === 'comfortable' ? ' is-active' : '')} onClick={() => setDensityPersist('comfortable')}>Comfortable</button>
+          <button className={'chip' + (density === 'compact' ? ' is-active' : '')} onClick={() => setDensityPersist('compact')}>Compact</button>
         </div>
+      </div>
+
+      {/* ---- Composer / running timer ---- */}
+      <div className={'timer-card glass' + (running ? ' is-running' : '')}>
         <input
           ref={descRef}
           type="text"
-          className="timer-note"
-          placeholder="Add a note (optional) — what are you working on?"
+          className="composer-desc"
+          placeholder="What are you working on?"
           value={description}
           autoComplete="off"
           onChange={(e) => setDescription(e.target.value)}
           onBlur={commitRunningDescription}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              toggleTimer();
-            }
-          }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); running ? stop() : start(); } }}
         />
+        {suggestedProject && (
+          <button className="suggest-chip" onClick={() => setProjectId(suggestedProject.id)}>
+            ↳ Use <strong>{suggestedProject.name}</strong>
+          </button>
+        )}
+        <div className="timer-controls">
+          <select className="project-select" value={projectId} onChange={(e) => changeProject(e.target.value)} aria-label="Project">
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            <option disabled>──────────</option>
+            <option value={ADD_NEW}>➕ Add new…</option>
+          </select>
+
+          {running && (
+            <span className="tracking-badge"><span className="pulse-dot" />Tracking</span>
+          )}
+          <div className="timer-readout">{Fmt.duration(runningElapsed)}</div>
+
+          {running ? (
+            <>
+              <button className="pause-btn" onClick={pause} title="Pause" aria-label="Pause">⏸</button>
+              <button className="stop-btn" onClick={stop} title="Stop" aria-label="Stop">■</button>
+            </>
+          ) : (
+            <button className="start-btn" onClick={start} aria-label="Start timer">▶</button>
+          )}
+        </div>
       </div>
 
       <div className="manual-add">
-        <button
-          className="link-btn"
-          onClick={() =>
-            setModalEntry({
-              id: null,
-              description: '',
-              projectId: projects[0]?.id ?? '',
-              start: Fmt.toDatetimeLocal(Date.now() - 3600000),
-              end: Fmt.toDatetimeLocal(Date.now()),
-            })
-          }
-        >
-          + Add time manually
+        <button className="link-btn" onClick={openManualAdd}>+ Add time manually</button>
+      </div>
+
+      {/* ---- Filters ---- */}
+      <div className="filters-bar">
+        {(['all', 'today', 'yesterday', 'week'] as Scope[]).map((s) => (
+          <button key={s} className={'chip chip-sm' + (scope === s ? ' is-active' : '')} onClick={() => setScope(s)}>
+            {s === 'all' ? 'All' : s === 'today' ? 'Today' : s === 'yesterday' ? 'Yesterday' : 'This week'}
+          </button>
+        ))}
+        <span className="filters-spacer" />
+        <select className="filter-select" value={filterProject} onChange={(e) => setFilterProject(e.target.value)}>
+          <option value="all">All projects</option>
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        {allTags.length > 0 && (
+          <select className="filter-select" value={filterTag} onChange={(e) => setFilterTag(e.target.value)}>
+            <option value="all">All tags</option>
+            {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        )}
+        <button className={'chip chip-sm' + (filterBillable ? ' is-active' : '')} onClick={() => setFilterBillable((b) => !b)}>
+          Billable
         </button>
       </div>
 
+      {/* ---- Entries ---- */}
       {loading ? (
         <p className="empty-state">Loading…</p>
-      ) : completed.length === 0 ? (
-        <p className="empty-state">No time tracked yet. Hit ▶ to start your first timer.</p>
+      ) : groups.length === 0 ? (
+        <div className="empty-state empty-cta">
+          <div className="empty-title">No time tracked yet.</div>
+          <p>Start your first timer above or add a manual entry.</p>
+          <button className="btn-primary" onClick={() => descRef.current?.focus()}>Start Tracking</button>
+        </div>
       ) : (
         <div className="entries-list">
           {groups.map((group) => (
@@ -217,83 +331,35 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
                 <span>{Fmt.dayLabel(group.entries[0].startMs)}</span>
                 <span className="day-total">{Fmt.durationShort(group.total)}</span>
               </div>
-              {group.entries.map((e) => {
-                const project = projects.find((p) => p.id === e.project_id) ?? null;
-                const meta = teamMeta(project?.team);
-                return (
-                  <div
-                    className="entry glass"
-                    key={e.id}
-                    onClick={() =>
-                      setModalEntry({
-                        id: e.id,
-                        description: e.description,
-                        projectId: e.project_id ?? '',
-                        start: Fmt.toDatetimeLocal(e.startMs),
-                        end: Fmt.toDatetimeLocal(e.endMs),
-                      })
-                    }
-                  >
-                    <span
-                      className="entry-dot"
-                      style={{ background: project ? project.color : '#999' }}
-                    />
-                    <div className="entry-main">
-                      <div className={'entry-desc' + (e.description ? '' : ' is-empty')}>
-                        {e.description || 'No description'}
-                      </div>
-                      <div className="entry-meta">
-                        <span>
-                          {(project ? project.name + ' · ' : '') +
-                            Fmt.clockTime(e.startMs) +
-                            ' – ' +
-                            Fmt.clockTime(e.endMs)}
-                        </span>
-                        {meta && (
-                          <span className="team-badge" style={{ color: meta.color, background: meta.tint }}>
-                            {meta.label}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className="entry-duration">{Fmt.duration(e.endMs - e.startMs)}</span>
-                    <button
-                      className="entry-resume"
-                      title="Resume this task"
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        resume(e);
-                      }}
-                    >
-                      ▶
-                    </button>
-                  </div>
-                );
-              })}
+              {group.entries.map((e) => (
+                <EntryRow
+                  key={e.id}
+                  entry={e}
+                  project={projects.find((p) => p.id === e.project_id)}
+                  projects={projects}
+                  onContinue={continueEntry}
+                  onDuplicate={duplicate}
+                  onDelete={requestDelete}
+                  onSave={saveInline}
+                />
+              ))}
             </div>
           ))}
         </div>
       )}
 
       {modalEntry && (
-        <EntryModal
-          draft={modalEntry}
-          projects={projects}
-          onSave={saveModal}
-          onDelete={deleteFromModal}
-          onClose={() => setModalEntry(null)}
-        />
+        <EntryModal draft={modalEntry} projects={projects} onSave={saveModal} onDelete={async (id) => { await db.deleteEntry(supabase, id); setModalEntry(null); await reload(); }} onClose={() => setModalEntry(null)} />
+      )}
+
+      {pending && (
+        <div className="snackbar glass">
+          <span>Entry deleted</span>
+          <button className="snackbar-undo" onClick={undoDelete}>Undo</button>
+        </div>
       )}
     </section>
   );
-}
-
-// Deterministic pleasant color for a quick-added category (so it's stable).
-function randomColor(seed: string): string {
-  const palette = ['#2f6df6', '#2bb673', '#e5a23c', '#e5484d', '#6c5ce7', '#34b3c4', '#e36fb0'];
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  return palette[h % palette.length];
 }
 
 type DayEntry = TimeEntry & { startMs: number; endMs: number };

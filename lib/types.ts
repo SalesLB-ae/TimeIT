@@ -30,6 +30,8 @@ export interface TimeEntry {
   description: string;
   started_at: string;      // ISO timestamp
   ended_at: string | null; // null while running
+  tags: string[];
+  billable: boolean;
   created_at: string;
 }
 

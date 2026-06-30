@@ -10,6 +10,8 @@ export interface EntryDraft {
   projectId: string;
   start: string; // datetime-local value
   end: string;   // datetime-local value
+  tags: string[];
+  billable: boolean;
 }
 
 function pad(n: number) {
@@ -50,6 +52,8 @@ export function EntryModal({
   const [startTime, setStartTime] = useState(startParts.time);
   const [endTime, setEndTime] = useState(endParts.time);
   const [durationField, setDurationField] = useState('');
+  const [tagsField, setTagsField] = useState(draft.tags.join(', '));
+  const [billable, setBillable] = useState(draft.billable);
 
   // Canonical start/end in ms (end rolls to next day if it's <= start → overnight).
   const { startMs, endMs } = useMemo(() => {
@@ -93,6 +97,8 @@ export function EntryModal({
       projectId,
       start: buildLocal(startMs),
       end: buildLocal(endMs),
+      tags: tagsField.split(',').map((t) => t.trim()).filter(Boolean),
+      billable,
     });
   }
 
@@ -161,6 +167,22 @@ export function EntryModal({
           </label>
         </div>
         {crossesMidnight && <p className="modal-hint">Ends next day (overnight entry).</p>}
+
+        <label>
+          Tags <span className="label-soft">(comma-separated)</span>
+          <input
+            type="text"
+            value={tagsField}
+            autoComplete="off"
+            placeholder="Sales, Client, Meeting"
+            onChange={(e) => setTagsField(e.target.value)}
+          />
+        </label>
+
+        <label className="checkbox-label">
+          <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} />
+          Billable
+        </label>
 
         <div className="modal-actions">
           {draft.id && (

@@ -93,7 +93,8 @@ export async function startTimer(
   supabase: DB,
   userId: string,
   description: string,
-  projectId: string | null
+  projectId: string | null,
+  tags: string[] = []
 ): Promise<TimeEntry> {
   // Stop any entry that is still running first.
   await supabase
@@ -110,6 +111,7 @@ export async function startTimer(
       project_id: projectId,
       started_at: new Date().toISOString(),
       ended_at: null,
+      tags,
     })
     .select()
     .single();
@@ -136,7 +138,9 @@ export async function addManualEntry(
   description: string,
   projectId: string | null,
   startedAt: string,
-  endedAt: string
+  endedAt: string,
+  tags: string[] = [],
+  billable = false
 ) {
   const { error } = await supabase.from('time_entries').insert({
     user_id: userId,
@@ -144,6 +148,22 @@ export async function addManualEntry(
     project_id: projectId,
     started_at: startedAt,
     ended_at: endedAt,
+    tags,
+    billable,
+  });
+  if (error) throw error;
+}
+
+// Copy an existing entry verbatim (used by the "Duplicate" action).
+export async function duplicateEntry(supabase: DB, userId: string, e: TimeEntry) {
+  const { error } = await supabase.from('time_entries').insert({
+    user_id: userId,
+    description: e.description,
+    project_id: e.project_id,
+    started_at: e.started_at,
+    ended_at: e.ended_at,
+    tags: e.tags ?? [],
+    billable: e.billable ?? false,
   });
   if (error) throw error;
 }

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { setMyTeam } from '@/lib/db';
 import { TEAM_LIST, teamMeta } from '@/lib/teams';
 import type { Role, Team } from '@/lib/types';
-import { MiniCalendar } from '@/components/MiniCalendar';
+import { SummaryPanel } from '@/components/SummaryPanel';
 
 const NAV = [
   { href: '/track', label: 'Track', icon: '⏱' },
@@ -94,7 +94,7 @@ export function Sidebar({
       </nav>
 
       <div className="sidebar-calendar">
-        <MiniCalendar userId={userId} />
+        <SummaryPanel userId={userId} />
       </div>
 
       <div className="side-spacer" />

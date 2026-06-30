@@ -87,6 +87,8 @@ export function TeamClient({ isAdmin }: { isAdmin: boolean }) {
       projectId: e.project_id ?? '',
       start: Fmt.toDatetimeLocal(new Date(e.started_at).getTime()),
       end: Fmt.toDatetimeLocal(new Date(e.ended_at!).getTime()),
+      tags: e.tags ?? [],
+      billable: e.billable ?? false,
     });
   }
 
@@ -97,6 +99,8 @@ export function TeamClient({ isAdmin }: { isAdmin: boolean }) {
       project_id: draft.projectId || null,
       started_at: new Date(draft.start).toISOString(),
       ended_at: new Date(draft.end).toISOString(),
+      tags: draft.tags,
+      billable: draft.billable,
     });
     setModal(null);
     await reload();

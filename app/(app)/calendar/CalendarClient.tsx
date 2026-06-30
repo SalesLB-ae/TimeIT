@@ -15,6 +15,7 @@ import { teamMeta } from '@/lib/teams';
 import * as Fmt from '@/lib/format';
 import { ymd, parseYmd, dayRange } from '@/lib/calendar';
 import { EntryModal, type EntryDraft } from '@/components/EntryModal';
+import { MiniCalendar } from '@/components/MiniCalendar';
 
 export function CalendarClient({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClient(), []);
@@ -63,6 +64,8 @@ export function CalendarClient({ userId }: { userId: string }) {
       projectId: projects[0]?.id ?? '',
       start: Fmt.toDatetimeLocal(start.getTime()),
       end: Fmt.toDatetimeLocal(end.getTime()),
+      tags: [],
+      billable: false,
     });
   }
 
@@ -73,6 +76,8 @@ export function CalendarClient({ userId }: { userId: string }) {
       projectId: e.project_id ?? '',
       start: Fmt.toDatetimeLocal(new Date(e.started_at).getTime()),
       end: Fmt.toDatetimeLocal(new Date(e.ended_at!).getTime()),
+      tags: e.tags ?? [],
+      billable: e.billable ?? false,
     });
   }
 
@@ -85,9 +90,13 @@ export function CalendarClient({ userId }: { userId: string }) {
         project_id: draft.projectId || null,
         started_at: startIso,
         ended_at: endIso,
+        tags: draft.tags,
+        billable: draft.billable,
       });
     } else {
-      await addManualEntry(supabase, userId, draft.description, draft.projectId || null, startIso, endIso);
+      await addManualEntry(
+        supabase, userId, draft.description, draft.projectId || null, startIso, endIso, draft.tags, draft.billable
+      );
     }
     setModal(null);
     // The new entry may land on a different day than the one in view.
@@ -131,9 +140,14 @@ export function CalendarClient({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <div className="report-total glass">
-        <span className="report-total-label">Your total this day</span>
-        <span className="report-total-value">{Fmt.duration(dayTotal)}</span>
+      <div className="calendar-layout">
+        <div className="calendar-aside">
+          <MiniCalendar userId={userId} />
+        </div>
+        <div className="report-total glass">
+          <span className="report-total-label">Your total this day</span>
+          <span className="report-total-value">{Fmt.duration(dayTotal)}</span>
+        </div>
       </div>
 
       {loading ? (
