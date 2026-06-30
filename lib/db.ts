@@ -153,6 +153,24 @@ export async function deleteEntry(supabase: DB, id: string) {
   if (error) throw error;
 }
 
+// Insert many entries at once (used by the CSV importer).
+export async function bulkAddEntries(
+  supabase: DB,
+  userId: string,
+  rows: { projectId: string | null; description: string; startIso: string; endIso: string }[]
+) {
+  if (!rows.length) return;
+  const payload = rows.map((r) => ({
+    user_id: userId,
+    project_id: r.projectId,
+    description: r.description,
+    started_at: r.startIso,
+    ended_at: r.endIso,
+  }));
+  const { error } = await supabase.from('time_entries').insert(payload);
+  if (error) throw error;
+}
+
 /* ---------- Reports ---------- */
 
 // The current user's completed entries since `sinceIso` — for personal reports.

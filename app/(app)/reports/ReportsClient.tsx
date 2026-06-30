@@ -3,21 +3,43 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
-import type { Project, TimeEntry } from '@/lib/types';
+import type { Project, Team, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
+import { ImportModal } from '@/components/ImportModal';
 
 type Range = 'day' | 'week' | 'month';
 
-function rangeStart(range: Range): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  if (range === 'week') {
-    const day = (d.getDay() + 6) % 7; // Monday start
-    d.setDate(d.getDate() - day);
-  } else if (range === 'month') {
-    d.setDate(1);
+// Compute the period [start, end) and a label for the chosen range + offset
+// (offset 0 = current; negative = past).
+function period(range: Range, offset: number): { start: Date; end: Date; label: string } {
+  if (range === 'day') {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() + offset);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    return {
+      start,
+      end,
+      label: start.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
+    };
   }
-  return d.getTime();
+  if (range === 'week') {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const dow = (start.getDay() + 6) % 7;
+    start.setDate(start.getDate() - dow + offset * 7);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 7);
+    const last = new Date(end);
+    last.setDate(last.getDate() - 1);
+    const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return { start, end, label: `${fmt(start)} – ${fmt(last)}` };
+  }
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 1);
+  return { start, end, label: start.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) };
 }
 
 interface Row {
@@ -26,30 +48,37 @@ interface Row {
   ms: number;
 }
 
-export function ReportsClient({ userId }: { userId: string }) {
+export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team | null }) {
   const supabase = useMemo(() => createClient(), []);
   const [range, setRange] = useState<Range>('week');
+  const [offset, setOffset] = useState(0);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importing, setImporting] = useState(false);
+
+  const { start, end, label } = useMemo(() => period(range, offset), [range, offset]);
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const since = new Date(rangeStart(range)).toISOString();
     const [data, projs] = await Promise.all([
-      db.fetchMyEntriesSince(supabase, userId, since),
+      db.fetchMyEntriesBetween(supabase, userId, start.toISOString(), end.toISOString()),
       db.fetchProjects(supabase),
     ]);
     setEntries(data);
     setProjects(projs);
     setLoading(false);
-  }, [supabase, userId, range]);
+  }, [supabase, userId, start, end]);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
-  // Your time grouped by project.
+  function setRangeReset(r: Range) {
+    setRange(r);
+    setOffset(0);
+  }
+
   const { total, rows } = useMemo(() => {
     const projectById = new Map(projects.map((p) => [p.id, p]));
     let total = 0;
@@ -78,8 +107,8 @@ export function ReportsClient({ userId }: { userId: string }) {
       rowsCsv.push([
         (e.project_id && projectById.get(e.project_id)?.name) || '',
         e.description || '',
-        new Date(e.started_at).toLocaleString(),
-        new Date(e.ended_at).toLocaleString(),
+        new Date(e.started_at).toISOString(),
+        new Date(e.ended_at).toISOString(),
         hours,
       ]);
     }
@@ -88,7 +117,7 @@ export function ReportsClient({ userId }: { userId: string }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `timeit-${range}-${Fmt.dayKey(Date.now())}.csv`;
+    a.download = `timeit-${range}-${Fmt.dayKey(start.getTime())}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -97,22 +126,37 @@ export function ReportsClient({ userId }: { userId: string }) {
     <section className="view">
       <div className="page-head">
         <div className="page-title">Reports</div>
+        <div className="range-picker">
+          <button className="link-btn" onClick={() => setImporting(true)}>Import CSV</button>
+          <button className="link-btn" onClick={exportCsv}>Export CSV</button>
+        </div>
       </div>
+
       <div className="report-controls">
         <div className="range-picker">
           {(['day', 'week', 'month'] as Range[]).map((r) => (
             <button
               key={r}
               className={'chip' + (range === r ? ' is-active' : '')}
-              onClick={() => setRange(r)}
+              onClick={() => setRangeReset(r)}
             >
-              {r === 'day' ? 'Today' : r === 'week' ? 'This week' : 'This month'}
+              {r === 'day' ? 'Day' : r === 'week' ? 'Week' : 'Month'}
             </button>
           ))}
         </div>
-        <button className="link-btn" onClick={exportCsv}>
-          Export CSV
-        </button>
+        {/* Move between dates / weeks / months */}
+        <div className="period-nav">
+          <button className="cal-nav" onClick={() => setOffset((o) => o - 1)} aria-label="Previous">‹</button>
+          <span className="period-label">{label}</span>
+          <button
+            className="cal-nav"
+            onClick={() => setOffset((o) => Math.min(0, o + 1))}
+            disabled={offset >= 0}
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
       </div>
 
       <div className="report-total glass">
@@ -124,7 +168,7 @@ export function ReportsClient({ userId }: { userId: string }) {
         {loading ? (
           <p className="empty-state">Loading…</p>
         ) : total === 0 ? (
-          <p className="empty-state">No time tracked in this range yet.</p>
+          <p className="empty-state">No time tracked in this period.</p>
         ) : (
           rows.map((row) => (
             <div className="report-row glass" key={row.name}>
@@ -147,6 +191,19 @@ export function ReportsClient({ userId }: { userId: string }) {
           ))
         )}
       </div>
+
+      {importing && (
+        <ImportModal
+          userId={userId}
+          myTeam={myTeam}
+          projects={projects}
+          onClose={() => setImporting(false)}
+          onImported={() => {
+            setImporting(false);
+            reload();
+          }}
+        />
+      )}
     </section>
   );
 }

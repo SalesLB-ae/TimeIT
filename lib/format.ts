@@ -59,3 +59,39 @@ export function toDatetimeLocal(ms: number): string {
 export function fromDatetimeLocal(value: string): number {
   return new Date(value).getTime();
 }
+
+// ms -> "H:MM" for an editable duration field.
+export function durationHM(ms: number): string {
+  const totalMin = Math.max(0, Math.round(ms / 60000));
+  return Math.floor(totalMin / 60) + ':' + pad(totalMin % 60);
+}
+
+// Parse flexible duration input -> minutes (or null if unparseable).
+// Accepts: "1:30", "1:30:00", "1h 30m", "90m", "1.5h", "1h", "90".
+export function parseDurationToMinutes(input: string): number | null {
+  const s = input.trim().toLowerCase();
+  if (!s) return null;
+
+  // H:MM or H:MM:SS
+  const colon = s.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (colon) {
+    const h = +colon[1];
+    const m = +colon[2];
+    const sec = colon[3] ? +colon[3] : 0;
+    if (m > 59 || sec > 59) return null;
+    return h * 60 + m + Math.round(sec / 60);
+  }
+
+  // 1h 30m / 1h / 30m  (also "1.5h")
+  const hm = s.match(/^(?:(\d+(?:\.\d+)?)\s*h)?\s*(?:(\d+)\s*m)?$/);
+  if (hm && (hm[1] || hm[2])) {
+    const h = hm[1] ? parseFloat(hm[1]) : 0;
+    const m = hm[2] ? parseInt(hm[2], 10) : 0;
+    return Math.round(h * 60) + m;
+  }
+
+  // bare number = minutes
+  if (/^\d+$/.test(s)) return parseInt(s, 10);
+
+  return null;
+}
