@@ -60,6 +60,17 @@ export function fromDatetimeLocal(value: string): number {
   return new Date(value).getTime();
 }
 
+// Live tracked duration (ms) of an active entry, accounting for pauses.
+// running_since set => add the open segment; null => paused (frozen).
+export function liveEntryMs(
+  entry: { accumulated_seconds: number; running_since: string | null },
+  nowMs: number
+): number {
+  const acc = (entry.accumulated_seconds ?? 0) * 1000;
+  if (entry.running_since) return acc + (nowMs - new Date(entry.running_since).getTime());
+  return acc;
+}
+
 // ms -> "H:MM" for an editable duration field.
 export function durationHM(ms: number): string {
   const totalMin = Math.max(0, Math.round(ms / 60000));

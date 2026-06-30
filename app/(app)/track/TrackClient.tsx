@@ -39,7 +39,10 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const [pending, setPending] = useState<{ entry: TimeEntry; timer: ReturnType<typeof setTimeout> } | null>(null);
   const descRef = useRef<HTMLInputElement>(null);
 
-  const running = entries.find((e) => e.ended_at === null) ?? null;
+  // The open entry (running OR paused) lives in the composer, not the list.
+  const open = entries.find((e) => e.ended_at === null) ?? null;
+  const isRunning = !!open && !!open.running_since;
+  const isPaused = !!open && !open.running_since;
 
   const reload = useCallback(async () => {
     const [p, e] = await Promise.all([
@@ -58,29 +61,28 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Live tick + tab title while running.
+  // Live tick only while actually running (paused = frozen).
   useEffect(() => {
-    if (!running) {
-      document.title = 'TimeIT — LeadersBrands Time Tracker';
-      return;
-    }
+    if (!isRunning) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     setNow(Date.now());
     return () => clearInterval(id);
-  }, [running?.id]);
+  }, [isRunning, open?.running_since]);
 
   useEffect(() => {
-    if (running) document.title = Fmt.duration(now - new Date(running.started_at).getTime()) + ' · TimeIT';
-  }, [now, running]);
+    if (isRunning && open) document.title = Fmt.duration(Fmt.liveEntryMs(open, now)) + ' · TimeIT';
+    else if (isPaused) document.title = 'Paused · TimeIT';
+    else document.title = 'TimeIT — LeadersBrands Time Tracker';
+  }, [now, isRunning, isPaused, open]);
 
-  // Mirror the running entry into the composer.
+  // Mirror the open entry into the composer.
   useEffect(() => {
-    if (running) {
-      if (document.activeElement !== descRef.current) setDescription(running.description);
-      setProjectId(running.project_id ?? projectId);
+    if (open) {
+      if (document.activeElement !== descRef.current) setDescription(open.description);
+      setProjectId(open.project_id ?? projectId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [running?.id]);
+  }, [open?.id]);
 
   function setDensityPersist(d: 'comfortable' | 'compact') {
     setDensity(d);
@@ -96,7 +98,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     return map;
   }, [entries]);
   const suggestedProject =
-    !running && description.trim()
+    !open && description.trim()
       ? (() => {
           const id = lastProjectFor.get(description.trim().toLowerCase());
           return id && id !== projectId ? projects.find((p) => p.id === id) ?? null : null;
@@ -109,18 +111,17 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     await reload();
   }
   async function stop() {
-    if (running) await db.stopTimer(supabase, running.id);
+    if (open) await db.stopTimer(supabase, open);
     setDescription('');
     await reload();
   }
   async function pause() {
-    // Stop, but keep the description/project staged so Start resumes it.
-    if (!running) return;
-    const { description: d, project_id: pid } = running;
-    await db.stopTimer(supabase, running.id);
+    if (open && isRunning) await db.pauseTimer(supabase, open);
     await reload();
-    setDescription(d);
-    setProjectId(pid ?? '');
+  }
+  async function resume() {
+    if (open && isPaused) await db.resumeTimer(supabase, open.id);
+    await reload();
   }
 
   async function changeProject(value: string) {
@@ -130,19 +131,19 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       const created = await db.createProject(supabase, name, randomColor(name), userId, myTeam);
       await reload();
       setProjectId(created.id);
-      if (running) await db.updateEntry(supabase, running.id, { project_id: created.id });
+      if (open) await db.updateEntry(supabase, open.id, { project_id: created.id });
       return;
     }
     setProjectId(value);
-    if (running) {
-      await db.updateEntry(supabase, running.id, { project_id: value || null });
+    if (open) {
+      await db.updateEntry(supabase, open.id, { project_id: value || null });
       await reload();
     }
   }
 
   async function commitRunningDescription() {
-    if (running && running.description !== description) {
-      await db.updateEntry(supabase, running.id, { description });
+    if (open && open.description !== description) {
+      await db.updateEntry(supabase, open.id, { description });
     }
   }
 
@@ -234,7 +235,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   }, [entries, scope, filterProject, filterBillable, filterTag]);
 
   const groups = useMemo(() => groupByDay(completed), [completed]);
-  const runningElapsed = running ? now - new Date(running.started_at).getTime() : 0;
+  const liveMs = open ? Fmt.liveEntryMs(open, now) : 0;
 
   return (
     <section className={'view track-view density-' + density}>
@@ -247,7 +248,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       </div>
 
       {/* ---- Composer / running timer ---- */}
-      <div className={'timer-card glass' + (running ? ' is-running' : '')}>
+      <div className={'timer-card glass' + (isRunning ? ' is-running' : '') + (isPaused ? ' is-paused' : '')}>
         <input
           ref={descRef}
           type="text"
@@ -257,7 +258,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
           autoComplete="off"
           onChange={(e) => setDescription(e.target.value)}
           onBlur={commitRunningDescription}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); running ? stop() : start(); } }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); open ? stop() : start(); } }}
         />
         {suggestedProject && (
           <button className="suggest-chip" onClick={() => setProjectId(suggestedProject.id)}>
@@ -271,18 +272,22 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
             <option value={ADD_NEW}>➕ Add new…</option>
           </select>
 
-          {running && (
-            <span className="tracking-badge"><span className="pulse-dot" />Tracking</span>
-          )}
-          <div className="timer-readout">{Fmt.duration(runningElapsed)}</div>
+          {isRunning && <span className="tracking-badge"><span className="pulse-dot" />Tracking</span>}
+          {isPaused && <span className="tracking-badge is-paused">⏸ Paused</span>}
+          <div className="timer-readout">{Fmt.duration(liveMs)}</div>
 
-          {running ? (
+          {!open && <button className="start-btn" onClick={start} aria-label="Start timer">▶</button>}
+          {isRunning && (
             <>
               <button className="pause-btn" onClick={pause} title="Pause" aria-label="Pause">⏸</button>
               <button className="stop-btn" onClick={stop} title="Stop" aria-label="Stop">■</button>
             </>
-          ) : (
-            <button className="start-btn" onClick={start} aria-label="Start timer">▶</button>
+          )}
+          {isPaused && (
+            <>
+              <button className="start-btn" onClick={resume} title="Resume" aria-label="Resume">▶</button>
+              <button className="stop-btn" onClick={stop} title="Stop" aria-label="Stop">■</button>
+            </>
           )}
         </div>
       </div>

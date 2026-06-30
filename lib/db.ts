@@ -89,6 +89,29 @@ export async function fetchMyEntries(supabase: DB, userId: string): Promise<Time
   return data ?? [];
 }
 
+// Active (running + paused) seconds banked by an open entry, as of now.
+function liveSeconds(e: TimeEntry): number {
+  const acc = e.accumulated_seconds ?? 0;
+  if (e.running_since) return acc + Math.floor((Date.now() - new Date(e.running_since).getTime()) / 1000);
+  return acc;
+}
+
+// Close an open entry: compress out paused gaps so ended_at - started_at == total.
+async function finalize(supabase: DB, e: TimeEntry) {
+  const total = liveSeconds(e);
+  const endedIso = new Date(new Date(e.started_at).getTime() + total * 1000).toISOString();
+  const { error } = await supabase
+    .from('time_entries')
+    .update({ ended_at: endedIso, accumulated_seconds: total, running_since: null })
+    .eq('id', e.id);
+  if (error) throw error;
+}
+
+async function finalizeOpen(supabase: DB, userId: string) {
+  const { data } = await supabase.from('time_entries').select('*').eq('user_id', userId).is('ended_at', null);
+  for (const e of (data ?? []) as TimeEntry[]) await finalize(supabase, e);
+}
+
 export async function startTimer(
   supabase: DB,
   userId: string,
@@ -96,21 +119,18 @@ export async function startTimer(
   projectId: string | null,
   tags: string[] = []
 ): Promise<TimeEntry> {
-  // Stop any entry that is still running first.
-  await supabase
-    .from('time_entries')
-    .update({ ended_at: new Date().toISOString() })
-    .eq('user_id', userId)
-    .is('ended_at', null);
-
+  await finalizeOpen(supabase, userId); // close any running/paused entry first
+  const nowIso = new Date().toISOString();
   const { data, error } = await supabase
     .from('time_entries')
     .insert({
       user_id: userId,
       description: description.trim(),
       project_id: projectId,
-      started_at: new Date().toISOString(),
+      started_at: nowIso,
       ended_at: null,
+      running_since: nowIso,
+      accumulated_seconds: 0,
       tags,
     })
     .select()
@@ -119,12 +139,27 @@ export async function startTimer(
   return data;
 }
 
-export async function stopTimer(supabase: DB, id: string) {
+// Pause: bank the current segment, clear running_since (entry stays open).
+export async function pauseTimer(supabase: DB, e: TimeEntry) {
   const { error } = await supabase
     .from('time_entries')
-    .update({ ended_at: new Date().toISOString() })
+    .update({ running_since: null, accumulated_seconds: liveSeconds(e) })
+    .eq('id', e.id);
+  if (error) throw error;
+}
+
+// Resume: open a new segment.
+export async function resumeTimer(supabase: DB, id: string) {
+  const { error } = await supabase
+    .from('time_entries')
+    .update({ running_since: new Date().toISOString() })
     .eq('id', id);
   if (error) throw error;
+}
+
+// Stop: finalize the open entry into a normal completed entry.
+export async function stopTimer(supabase: DB, e: TimeEntry) {
+  await finalize(supabase, e);
 }
 
 export async function updateEntry(supabase: DB, id: string, fields: Partial<TimeEntry>) {

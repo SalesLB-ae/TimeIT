@@ -29,7 +29,9 @@ export interface TimeEntry {
   project_id: string | null;
   description: string;
   started_at: string;      // ISO timestamp
-  ended_at: string | null; // null while running
+  ended_at: string | null; // null while active (running OR paused)
+  running_since: string | null; // start of current active segment; null = paused
+  accumulated_seconds: number;   // active time banked from previous segments
   tags: string[];
   billable: boolean;
   created_at: string;

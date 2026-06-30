@@ -515,3 +515,10 @@ body {
 .calendar-aside { width: 300px; flex-shrink: 0; }
 .calendar-layout .report-total { flex: 1; min-width: 240px; margin-bottom: 0; }
 @media (max-width: 720px) { .calendar-aside { width: 100%; } }
+
+/* Paused timer state (amber) */
+.timer-card.is-paused {
+  border-color: rgba(229,162,60,0.6);
+  box-shadow: 0 0 0 1px rgba(229,162,60,0.35), 0 8px 30px rgba(229,162,60,0.16), var(--glass-inset);
+}
+.tracking-badge.is-paused { color: #d8902a; }
