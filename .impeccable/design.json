@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-02T00:00:00.000Z",
+  "title": "Design System: TimeIT",
+  "extensions": {
+    "colorMeta": {
+      "clear-sky-blue": {
+        "role": "primary",
+        "displayName": "Clear-Sky Blue",
+        "canonical": "#2f6df6",
+        "tonalRamp": ["#0a1f57", "#122f86", "#1b45b8", "#2456df", "#2f6df6", "#5b8ef8", "#8fb2fb", "#cfdefd"]
+      },
+      "success-green": {
+        "role": "secondary",
+        "displayName": "Success Green",
+        "canonical": "#2bb673",
+        "tonalRamp": ["#08341f", "#0f5233", "#177347", "#1f955c", "#2bb673", "#54cb90", "#8adfb5", "#c6f1da"]
+      },
+      "paused-amber": {
+        "role": "secondary",
+        "displayName": "Paused Amber",
+        "canonical": "#d8902a",
+        "tonalRamp": ["#3d2708", "#5f3d0f", "#835517", "#a86e1f", "#d8902a", "#e4ab5c", "#eec78f", "#f7e3c6"]
+      },
+      "danger-red": {
+        "role": "secondary",
+        "displayName": "Danger Red",
+        "canonical": "#e5484d",
+        "tonalRamp": ["#4a0f11", "#71181b", "#9a2226", "#c33236", "#e5484d", "#ee7477", "#f5a3a5", "#fbd2d3"]
+      },
+      "sales-coral": {
+        "role": "tertiary",
+        "displayName": "Sales Coral",
+        "canonical": "#ff7a59",
+        "tonalRamp": ["#521a0d", "#7a2814", "#a3371c", "#cc4826", "#ff7a59", "#ff9a82", "#ffbaab", "#ffdcd3"]
+      },
+      "ops-violet": {
+        "role": "tertiary",
+        "displayName": "Ops Violet",
+        "canonical": "#6c5ce7",
+        "tonalRamp": ["#1f1750", "#2f2377", "#40309f", "#5546c4", "#6c5ce7", "#8f83ee", "#b3aaf4", "#d8d2fa"]
+      },
+      "ink-navy": {
+        "role": "neutral",
+        "displayName": "Ink Navy",
+        "canonical": "#16324f",
+        "tonalRamp": ["#0a1826", "#102438", "#16324f", "#2b4c6e", "#456a8f", "#6c8aab", "#9db2c9", "#d0dbe7"]
+      },
+      "muted-slate": {
+        "role": "neutral",
+        "displayName": "Muted Slate",
+        "canonical": "#5d7793",
+        "tonalRamp": ["#24303e", "#354658", "#475d74", "#5d7793", "#7d93ab", "#9dafc2", "#bdcad6", "#dee5ec"]
+      },
+      "sky-mid": {
+        "role": "neutral",
+        "displayName": "Daylight Sky",
+        "canonical": "#aedaff",
+        "tonalRamp": ["#1c4a72", "#2a6699", "#3a83c0", "#5ea3df", "#8ec9ff", "#aedaff", "#d4ecff", "#eaf6ff"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display / Wordmark", "purpose": "Poppins. Brand wordmark and login title only — never app chrome." },
+      "numeric": { "displayName": "Timer Readout", "purpose": "The signature figure. 34px tabular-nums, right-aligned. The number the product exists to show." },
+      "headline": { "displayName": "Grand Total", "purpose": "Report totals — the 'trust the numbers' figure. 800 weight, tabular." },
+      "title": { "displayName": "Page Title", "purpose": "Track / Reports / Projects page headings. 22px, 700." },
+      "body": { "displayName": "Body / UI", "purpose": "Default text. Entry descriptions run heavier (700, 15.5px)." },
+      "label": { "displayName": "Signpost Label", "purpose": "Day headers, summary labels, badges. Uppercase, 11.5px, 0.5px tracking." }
+    },
+    "shadows": [
+      { "name": "glass-ambient", "value": "0 8px 30px rgba(31,73,125,0.16), inset 0 1px 0 rgba(255,255,255,0.9)", "purpose": "Resting state of every glass panel — navy-tinted diffuse shadow plus bright top highlight." },
+      { "name": "hover-lift", "value": "0 10px 26px rgba(31,73,125,0.18), inset 0 1px 0 rgba(255,255,255,0.9)", "purpose": "Entry rows and interactive cards on hover, paired with translateY(-1px)." },
+      { "name": "running-glow", "value": "0 0 0 1px rgba(43,182,115,0.4), 0 8px 30px rgba(43,182,115,0.18), inset 0 1px 0 rgba(255,255,255,0.9)", "purpose": "The timer card while actively tracking. Amber variant (229,162,60) when paused." },
+      { "name": "action-shadow", "value": "0 6px 16px rgba(47,109,246,0.4)", "purpose": "Colored soft shadow under circular timer buttons, tinted to the button's own hue." }
+    ],
+    "motion": [
+      { "name": "state-fast", "value": "0.12s–0.15s ease", "purpose": "Hover/active state changes on buttons, links, entries." },
+      { "name": "surface-shift", "value": "0.18s ease", "purpose": "Timer card border/shadow transitions between neutral, running, and paused." },
+      { "name": "bar-fill", "value": "0.4s ease", "purpose": "Report bar width growth." },
+      { "name": "press", "value": "transform: scale(0.92)", "purpose": "Tactile press feedback on circular timer transport controls." },
+      { "name": "pulse", "value": "1.4s ease-in-out infinite", "purpose": "The live tracking pulse dot ring expansion." }
+    ],
+    "breakpoints": [
+      { "name": "tablet", "value": "860px" },
+      { "name": "calendar-stack", "value": "720px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The primary action — solid Clear-Sky Blue, used sparingly (≤10% of a screen).",
+      "html": "<button class=\"ds-btn-primary\">Add entry</button>",
+      "css": ".ds-btn-primary { background: #2f6df6; color: #fff; border: none; border-radius: 12px; padding: 10px 16px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background 0.15s; } .ds-btn-primary:hover { background: #1f5be0; } .ds-btn-primary:focus-visible { outline: 2px solid #2f6df6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "The default secondary action — translucent glass with a frosted edge.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { background: rgba(255,255,255,0.6); color: #16324f; border: 1px solid rgba(255,255,255,0.75); border-radius: 12px; padding: 10px 16px; font-size: 14px; font-weight: 700; cursor: pointer; -webkit-backdrop-filter: saturate(180%) blur(12px); backdrop-filter: saturate(180%) blur(12px); transition: background 0.15s; } .ds-btn-ghost:hover { background: rgba(255,255,255,0.85); } .ds-btn-ghost:focus-visible { outline: 2px solid #2f6df6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Timer Start",
+      "kind": "button",
+      "refersTo": "timer-start",
+      "description": "The signature transport control — a 48px green circle. Becomes a red stop circle while running.",
+      "html": "<button class=\"ds-timer-start\" aria-label=\"Start timer\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"currentColor\"><path d=\"M8 5v14l11-7z\"/></svg></button>",
+      "css": ".ds-timer-start { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer; display: grid; place-items: center; color: #fff; background: linear-gradient(160deg,#2fd07a,#22b56a); box-shadow: 0 6px 16px rgba(43,182,115,0.4); transition: transform 0.12s, box-shadow 0.15s; } .ds-timer-start:hover { box-shadow: 0 8px 22px rgba(43,182,115,0.5); } .ds-timer-start:active { transform: scale(0.92); } .ds-timer-start:focus-visible { outline: 2px solid #16324f; outline-offset: 3px; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Range / filter / grouping pill. Translucent when resting, solid Clear-Sky Blue when active.",
+      "html": "<button class=\"ds-chip\">Week</button><button class=\"ds-chip ds-chip--active\">Month</button>",
+      "css": ".ds-chip { border: 1px solid rgba(255,255,255,0.75); background: rgba(255,255,255,0.5); color: #5d7793; padding: 7px 14px; border-radius: 999px; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s; } .ds-chip:hover { background: rgba(255,255,255,0.75); color: #16324f; } .ds-chip--active { background: #2f6df6; color: #fff; border-color: #2f6df6; } .ds-chip:focus-visible { outline: 2px solid #2f6df6; outline-offset: 2px; }"
+    },
+    {
+      "name": "Glass Card",
+      "kind": "card",
+      "refersTo": "card-glass",
+      "description": "The core surface primitive — every panel is a frosted pane floating on the sky.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card__title\">Today</div><div class=\"ds-card__body\">6h 42m tracked across 4 projects.</div></div>",
+      "css": ".ds-card { background: rgba(255,255,255,0.55); -webkit-backdrop-filter: saturate(180%) blur(18px); backdrop-filter: saturate(180%) blur(18px); border: 1px solid rgba(255,255,255,0.75); box-shadow: 0 8px 30px rgba(31,73,125,0.16), inset 0 1px 0 rgba(255,255,255,0.9); border-radius: 18px; padding: 18px; color: #16324f; } .ds-card__title { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #5d7793; margin-bottom: 6px; } .ds-card__body { font-size: 15px; line-height: 1.45; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Translucent field with a frosted edge; border shifts to Clear-Sky Blue on focus (no heavy glow).",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"What are you working on?\" />",
+      "css": ".ds-input { width: 100%; border: 1px solid rgba(255,255,255,0.75); background: rgba(255,255,255,0.7); color: #16324f; border-radius: 12px; padding: 9px 12px; font-size: 15px; outline: none; transition: border-color 0.15s; } .ds-input::placeholder { color: #5d7793; } .ds-input:focus { border-color: #2f6df6; }"
+    },
+    {
+      "name": "Team Badge",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Team identity pill — color is always paired with a text label and a leading dot, never hue alone.",
+      "html": "<span class=\"ds-team-badge ds-team-badge--sales\">Sales</span><span class=\"ds-team-badge ds-team-badge--ops\">Ops</span>",
+      "css": ".ds-team-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.2px; padding: 2px 9px; border-radius: 999px; text-transform: uppercase; } .ds-team-badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; } .ds-team-badge--sales { color: #ff7a59; background: rgba(255,122,89,0.16); } .ds-team-badge--ops { color: #6c5ce7; background: rgba(108,92,231,0.16); }"
+    },
+    {
+      "name": "Nav Link",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Sidebar navigation row — muted at rest, Clear-Sky Blue on a soft tint when active.",
+      "html": "<a class=\"ds-nav-link ds-nav-link--active\" href=\"#\"><span class=\"ds-nav-ico\">⏱</span> Track</a><a class=\"ds-nav-link\" href=\"#\"><span class=\"ds-nav-ico\">📊</span> Reports</a>",
+      "css": ".ds-nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; color: #5d7793; text-decoration: none; font-weight: 600; font-size: 14.5px; transition: background 0.15s, color 0.15s; } .ds-nav-link:hover { background: rgba(255,255,255,0.45); color: #16324f; } .ds-nav-link--active { background: rgba(47,109,246,0.14); color: #2f6df6; } .ds-nav-ico { width: 18px; text-align: center; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Daylight Glass",
+    "overview": "TimeIT is Apple-style translucency lit by daylight: soft, frosted surfaces floating on a calm sky-blue field, with sharp typographic hierarchy carrying the data. The glass is the material; precision is the voice. Density serves speed — this is a tool people keep open all day, so layouts are compact and information-rich rather than airy, and the primary action on every screen is never in doubt. Color is rationed: the surface is atmosphere, and saturated color appears only to signal action, state, or team identity. The system explicitly rejects employee-surveillance aesthetics and heavy enterprise-timesheet chrome; feedback is calm and never nags.",
+    "keyCharacteristics": [
+      "Frosted liquid-glass panels on a fixed daylight sky-blue gradient",
+      "Soft, tactile, rounded surfaces (18px / 12px radii, full pills for actions)",
+      "Sharp, tabular-numeral data hierarchy on top of the soft glass",
+      "Restrained color: one accent for action/state, semantic green/amber/red, two team hues",
+      "Calm, quiet feedback — never surveillance, never gamification"
+    ],
+    "rules": [
+      { "name": "The Rationed-Color Rule", "body": "Clear-Sky Blue appears on ≤10% of any screen. The sky is atmosphere; the accent is action. If a screen looks blue-on-blue-on-blue, the accent has stopped meaning 'act here.'", "section": "colors" },
+      { "name": "The One-Meaning Rule", "body": "Green means running. Amber means paused. Red means stop/destroy. Coral means Sales, violet means Ops. A semantic color is never borrowed for decoration.", "section": "colors" },
+      { "name": "The Tabular-Figures Rule", "body": "Every number that represents time uses font-variant-numeric: tabular-nums. Figures must not jitter as they tick. It is the difference between a stopwatch and a toy.", "section": "typography" },
+      { "name": "The One-Family Rule", "body": "The system sans carries headings, buttons, labels, body, and data. Poppins is brand chrome only. Never introduce a third family.", "section": "typography" },
+      { "name": "The Frosted-Not-Flat Rule", "body": "Depth comes from the blur and the inner highlight, never from a dark or hard drop shadow. Remove the backdrop-filter and the panel should look broken, not merely flatter.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep Clear-Sky Blue (#2f6df6) to ≤10% of any screen — it means 'act here / this is selected,' nothing else.",
+      "Do use font-variant-numeric: tabular-nums on every time figure — readouts, durations, totals.",
+      "Do build depth from the frosted blur + bright inner highlight, with a soft navy-tinted ambient shadow (0 8px 30px rgba(31,73,125,0.16)).",
+      "Do pair every team/status color with a text label or badge, so color-blind users never rely on hue alone.",
+      "Do keep the daylight gradient background-attachment: fixed — the glass floats on a stable sky.",
+      "Do map each semantic color to exactly one meaning: green=running, amber=paused, red=stop/destroy.",
+      "Do honor prefers-reduced-motion for the pulse dot, entry fade-ins, and view transitions."
+    ],
+    "donts": [
+      "Don't drift toward employee-surveillance aesthetics — no activity scores, streaks, idle-shaming, or screenshots.",
+      "Don't adopt heavy enterprise-timesheet chrome — no dense gray form-grids, no approval-gated wizards, no legacy-ERP density.",
+      "Don't ship the generic purple-gradient SaaS dashboard or the hero-metric template.",
+      "Don't use background-clip: text gradient text, or a border-left/border-right colored stripe as an accent.",
+      "Don't use glassmorphism as decoration elsewhere — here it is the system material, applied consistently.",
+      "Don't use Poppins for UI labels, buttons, or data — it is brand chrome only.",
+      "Don't let muted-slate (#5d7793) body text sit on the most transparent glass where it drops below 4.5:1.",
+      "Don't use a hard/dark drop shadow — if it looks like a 2014 app, the blur is missing and the shadow is too dark."
+    ]
+  }
+}
