@@ -24,32 +24,32 @@ typography:
     lineHeight: 1.1
     letterSpacing: "-0.5px"
   headline:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "30px"
     fontWeight: 800
     lineHeight: 1.15
     letterSpacing: "normal"
   numeric:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
     fontSize: "34px"
-    fontWeight: 700
+    fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "0.5px"
     fontFeature: "tabular-nums"
   title:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "22px"
     fontWeight: 700
     lineHeight: 1.25
     letterSpacing: "normal"
   body:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.45
     letterSpacing: "normal"
   label:
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    fontFamily: "'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
     fontSize: "11.5px"
     fontWeight: 700
     lineHeight: 1.3
@@ -170,23 +170,24 @@ The body background is a **fixed** layered gradient — never scrolls — runnin
 
 ## 3. Typography
 
-**Display Font:** Poppins (with `-apple-system` / system-sans fallback) — brand wordmark and login only.
-**Body / UI Font:** System sans stack (`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`) — everything else.
+**Display Font:** Poppins (with `-apple-system` fallback) — brand wordmark and login only.
+**Body / UI Font:** **Hanken Grotesk** (with system-sans fallback) — headings, labels, body, and all non-numeric UI.
+**Time / Numeric Font:** **IBM Plex Mono** (with `ui-monospace` fallback) — every figure that represents time.
 
-**Character:** One workhorse system sans carries the entire interface — headings, labels, body, and data — so the UI feels native and fast on every platform. Poppins appears *only* as the brand voice (the "TimeIT" wordmark, the login screen), a single geometric grace note against the neutral system sans. The pairing is contrast-by-role, not two-similar-sans.
+**Character:** A deliberate three-role type system, contrast-by-role. **Hanken Grotesk** — a warm, slightly-condensed humanist grotesque — carries the interface: legible and distinctive without the flat neutrality of Inter/Roboto/system sans. **IBM Plex Mono** renders every *time* figure, so the numbers the product exists to show read as precise, mechanical, and unmistakably clock-like against the soft glass. **Poppins** stays the brand grace note (the "TimeIT" wordmark, the login). Three families, three jobs: brand, interface, time.
 
 ### Hierarchy
 - **Display** (Poppins, 700, 30px, `-0.5px`): The brand wordmark and login title. Nowhere in the app chrome.
-- **Numeric** (system sans, 700, 34px, tabular-nums, `0.5px`): The signature — the live timer readout. Big, monospaced-figure, right-aligned. Compact density drops it to 27px. This is the number the whole product exists to show.
-- **Headline** (system sans, 800, 30px, tabular-nums): Report grand totals — the "trust the numbers" figure.
-- **Title** (system sans, 700, 22px): Page titles (`Track`, `Reports`, `Projects`).
-- **Body** (system sans, 400–600, 15px, line-height 1.45): Default text. Entry descriptions run heavier (700, 15.5px) to lead each row; durations heavier still (800, 17px).
-- **Label** (system sans, 700, 11.5px, uppercase, `0.5px`): Day headers, summary labels, team badges, role badges — the small structural signposts.
+- **Numeric** (IBM Plex Mono, 600, 34px, tabular-nums, `0.5px`): The signature — the live timer readout. Big, true-monospace, right-aligned. Compact density drops it to 27px. This is the number the whole product exists to show.
+- **Headline** (Hanken Grotesk, 800, 30px): Report grand totals — the "trust the numbers" figure (the value itself renders in IBM Plex Mono).
+- **Title** (Hanken Grotesk, 700, 22px): Page titles (`Track`, `Reports`, `Projects`).
+- **Body** (Hanken Grotesk, 400–600, 15px, line-height 1.45): Default text. Entry descriptions run heavier (700, 15.5px) to lead each row; durations render in IBM Plex Mono.
+- **Label** (Hanken Grotesk, 700, 11.5px, uppercase, `0.5px`): Day headers, summary labels, team badges, role badges — the small structural signposts.
 
 ### Named Rules
-**The Tabular-Figures Rule.** Every number that represents *time* — timer readout, durations, daily/period totals, report values — uses `font-variant-numeric: tabular-nums`. Figures must not jitter as they tick. This is non-negotiable; it is the difference between a stopwatch and a toy.
+**The Tabular-Figures Rule.** Every number that represents *time* — timer readout, durations, daily/period totals, streak, day totals — renders in IBM Plex Mono with `font-variant-numeric: tabular-nums`. Figures must not jitter as they tick. This is non-negotiable; it is the difference between a stopwatch and a toy.
 
-**The One-Family Rule.** The system sans carries headings, buttons, labels, body, and data. Poppins is brand chrome only. Never introduce a third family, and never use Poppins for UI labels or data.
+**The Three-Role Rule.** Poppins = brand chrome only. Hanken Grotesk = all interface text. IBM Plex Mono = time figures only. Never use Poppins for UI labels or data; never set body/labels in the mono; never add a fourth family.
 
 ## 4. Elevation
 
@@ -258,6 +259,6 @@ Pills that pair color *with a label* — never color alone. Team badges carry a 
 - **Don't** ship the generic **purple-gradient SaaS dashboard** or the **hero-metric template** (giant number + gradient accent + supporting stats).
 - **Don't** use `background-clip: text` gradient text, or a `border-left`/`border-right` colored stripe as an accent — both are banned; use weight, full borders, or background tints.
 - **Don't** use glassmorphism as decoration elsewhere — here it is the *system material*, applied consistently to every panel; don't scatter one-off blurred cards for flavor.
-- **Don't** use Poppins for UI labels, buttons, or data — it is brand chrome only. One workhorse system sans carries the app.
+- **Don't** use Poppins for UI labels, buttons, or data — it is brand chrome only. Hanken Grotesk carries the interface; IBM Plex Mono carries the time figures.
 - **Don't** let muted-slate (#5d7793) body text sit on the most transparent glass where it drops below 4.5:1 — push toward ink navy for anything meant to be read.
 - **Don't** use a hard/dark drop shadow — if it looks like a 2014 app, the blur is missing and the shadow is too dark (the Frosted-Not-Flat Rule).

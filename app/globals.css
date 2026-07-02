@@ -20,7 +20,7 @@
 html, body { height: 100%; }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: var(--text);
   font-size: 15px;
   line-height: 1.45;
@@ -510,3 +510,44 @@ body {
   box-shadow: 0 0 0 1px rgba(229,162,60,0.35), 0 8px 30px rgba(229,162,60,0.16), var(--glass-inset);
 }
 .tracking-badge.is-paused { color: #d8902a; }
+
+/* ============================================================
+   Aesthetic refinement: mono time-figures + orchestrated motion
+   (no color/glass changes)
+   ============================================================ */
+
+/* Every figure that represents TIME renders in IBM Plex Mono (Tabular-Figures Rule). */
+.timer-readout, .report-total-value, .entry-duration, .day-total,
+.summary-value, .report-bar-time, .cal-person-total, .duration-input {
+  font-family: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+/* The "top project" value is a name, not a number — keep it in the UI face. */
+.summary-value--sm {
+  font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* One orchestrated page-load reveal: Track sections rise in sequence. */
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.track-view { animation: none; }
+.track-view > * { animation: rise 0.26s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.track-view > *:nth-child(2) { animation-delay: 0.05s; }
+.track-view > *:nth-child(3) { animation-delay: 0.10s; }
+.track-view > *:nth-child(4) { animation-delay: 0.15s; }
+.track-view > *:nth-child(5) { animation-delay: 0.20s; }
+
+/* Sidebar nav settles in with a gentle stagger on load. */
+.side-nav .nav-link { animation: rise 0.3s ease both; }
+.side-nav .nav-link:nth-child(2) { animation-delay: 0.04s; }
+.side-nav .nav-link:nth-child(3) { animation-delay: 0.08s; }
+.side-nav .nav-link:nth-child(4) { animation-delay: 0.12s; }
+.side-nav .nav-link:nth-child(5) { animation-delay: 0.16s; }
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
