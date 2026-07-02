@@ -200,6 +200,23 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
                   <button className="mini-btn" onClick={async () => { await db.setClientArchived(supabase, c.id, !c.archived); await reload(); }}>
                     {c.archived ? 'Restore' : 'Archive'}
                   </button>
+                  {!c.is_internal && (
+                    <button
+                      className="mini-btn mini-btn-danger"
+                      title="Delete permanently"
+                      onClick={async () => {
+                        const n = projects.filter((p) => p.client_id === c.id).length;
+                        const msg = n > 0
+                          ? `Delete client “${c.name}” permanently?\n\nIts ${n} project${n === 1 ? '' : 's'} will be moved to Operations (kept, not deleted). This cannot be undone.`
+                          : `Delete client “${c.name}” permanently? This cannot be undone.`;
+                        if (!window.confirm(msg)) return;
+                        await db.deleteClient(supabase, c.id);
+                        await reload();
+                      }}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </span>
               </div>
               {projectsOf(c.id).map(renderProject)}

@@ -136,6 +136,23 @@ export async function setClientArchived(supabase: DB, id: string, archived: bool
   if (error) throw error;
 }
 
+// Permanently delete a client. Its projects are reassigned to the internal
+// (Operations) client so they aren't orphaned — every project must keep a
+// client. The internal client itself cannot be deleted.
+export async function deleteClient(supabase: DB, id: string) {
+  const internal = await internalClientId(supabase);
+  if (internal === id) throw new Error('The Operations client cannot be deleted.');
+  if (internal) {
+    const { error: reassignErr } = await supabase
+      .from('projects')
+      .update({ client_id: internal })
+      .eq('client_id', id);
+    if (reassignErr) throw reassignErr;
+  }
+  const { error } = await supabase.from('clients').delete().eq('id', id);
+  if (error) throw error;
+}
+
 /* ---------- Tasks ---------- */
 
 export async function fetchTasks(supabase: DB, includeArchived = false): Promise<Task[]> {
