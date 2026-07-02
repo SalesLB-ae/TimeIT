@@ -10,7 +10,14 @@ import { EntryRow, type EntrySaveFields } from '@/components/EntryRow';
 import { ProjectPicker } from '@/components/ProjectPicker';
 
 const ADD_NEW = '__add_new__';
-type Scope = 'all' | 'today' | 'yesterday' | 'week';
+type Scope = 'all' | 'today' | 'yesterday' | 'week' | 'day';
+
+const DAY_MS = 86_400_000;
+function midnight(ms: number): number {
+  const d = new Date(ms);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 function randomColor(seed: string): string {
   const palette = ['#2f6df6', '#2bb673', '#e5a23c', '#e5484d', '#6c5ce7', '#34b3c4', '#e36fb0'];
@@ -34,6 +41,8 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const [now, setNow] = useState(() => Date.now());
 
   const [scope, setScope] = useState<Scope>('all');
+  const [focusDate, setFocusDate] = useState(() => midnight(Date.now()));
+  const [search, setSearch] = useState('');
   const [filterClient, setFilterClient] = useState('all');
   const [filterProject, setFilterProject] = useState('all');
   const [filterTask, setFilterTask] = useState('all');
@@ -228,12 +237,19 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     return Array.from(s).sort();
   }, [entries]);
 
+  const projName = useMemo(() => {
+    const m = new Map(projects.map((p) => [p.id, p.name]));
+    return (id: string | null) => (id ? m.get(id) ?? '' : '');
+  }, [projects]);
+
   const completed = useMemo(() => {
     const today = Fmt.dayKey(Date.now());
     const y = new Date(); y.setDate(y.getDate() - 1);
     const yKey = Fmt.dayKey(y.getTime());
     const wkStart = new Date(); wkStart.setHours(0, 0, 0, 0);
     wkStart.setDate(wkStart.getDate() - ((wkStart.getDay() + 6) % 7));
+    const focusKey = Fmt.dayKey(focusDate);
+    const q = search.trim().toLowerCase();
     return entries
       .filter((e) => e.ended_at != null)
       .filter((e) => {
@@ -241,14 +257,42 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
         if (scope === 'today') return k === today;
         if (scope === 'yesterday') return k === yKey;
         if (scope === 'week') return new Date(e.started_at).getTime() >= wkStart.getTime();
+        if (scope === 'day') return k === focusKey;
         return true;
       })
       .filter((e) => filterClient === 'all' || clientOf(e.project_id) === filterClient)
       .filter((e) => filterProject === 'all' || e.project_id === filterProject)
       .filter((e) => filterTask === 'all' || e.task_id === filterTask)
       .filter((e) => filterTag === 'all' || (e.tags ?? []).includes(filterTag))
+      .filter((e) => !q || (e.description + ' ' + projName(e.project_id) + ' ' + (e.tags ?? []).join(' ')).toLowerCase().includes(q))
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
-  }, [entries, scope, filterClient, filterProject, filterTask, filterTag, clientOf]);
+  }, [entries, scope, focusDate, search, filterClient, filterProject, filterTask, filterTag, clientOf, projName]);
+
+  const entryMs = (e: TimeEntry) => new Date(e.ended_at!).getTime() - new Date(e.started_at).getTime();
+  // "Your total" reflects the currently filtered list; the week total is absolute.
+  const filteredTotalMs = useMemo(() => completed.reduce((s, e) => s + entryMs(e), 0), [completed]);
+  const weekTotalMs = useMemo(() => {
+    const wkStart = new Date(); wkStart.setHours(0, 0, 0, 0);
+    wkStart.setDate(wkStart.getDate() - ((wkStart.getDay() + 6) % 7));
+    return entries
+      .filter((e) => e.ended_at != null && new Date(e.started_at).getTime() >= wkStart.getTime())
+      .reduce((s, e) => s + entryMs(e), 0);
+  }, [entries]);
+
+  const focusLabel = useMemo(
+    () => new Date(focusDate).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+    [focusDate]
+  );
+  const isFocusToday = Fmt.dayKey(focusDate) === Fmt.dayKey(Date.now());
+
+  function shiftDay(delta: number) {
+    setFocusDate((d) => midnight(d + delta * DAY_MS));
+    setScope('day');
+  }
+  function goToday() {
+    setFocusDate(midnight(Date.now()));
+    setScope('day');
+  }
 
   // Overlap check for manual entries (against the user's own completed entries).
   const overlaps = useCallback(
@@ -267,8 +311,29 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
 
   return (
     <section className="view track-view density-compact">
-      <div className="page-head">
-        <div className="page-title">Track</div>
+      {/* ---- Top bar: date navigator + manual add ---- */}
+      <div className="track-topbar">
+        <h1 className="track-date">{focusLabel}</h1>
+        <div className="track-actions">
+          <div className="date-nav">
+            <button className="date-nav-btn" onClick={() => shiftDay(-1)}>‹ Prev</button>
+            <button className={'date-nav-btn' + (scope === 'day' && isFocusToday ? ' is-active' : '')} onClick={goToday}>Today</button>
+            <button className="date-nav-btn" onClick={() => shiftDay(1)}>Next ›</button>
+          </div>
+          <button className="btn-primary" onClick={openManualAdd}>+ Add entry manually</button>
+        </div>
+      </div>
+
+      {/* ---- Metric cards ---- */}
+      <div className="metrics-row">
+        <div className="metric-card glass">
+          <span className="metric-label">Your total{scope === 'all' ? '' : ' (filtered)'}</span>
+          <span className="metric-value">{Fmt.duration(filteredTotalMs)}</span>
+        </div>
+        <div className="metric-card glass">
+          <span className="metric-label">Your total this week</span>
+          <span className="metric-value">{Fmt.duration(weekTotalMs)}</span>
+        </div>
       </div>
 
       {/* ---- Composer / running timer ---- */}
@@ -335,10 +400,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
         )}
       </div>
 
-      <div className="manual-add">
-        <button className="link-btn" onClick={openManualAdd}>+ Add time manually</button>
-      </div>
-
       {/* ---- Filters ---- */}
       <div className="filters-bar">
         {(['all', 'today', 'yesterday', 'week'] as Scope[]).map((s) => (
@@ -346,6 +407,14 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
             {s === 'all' ? 'All' : s === 'today' ? 'Today' : s === 'yesterday' ? 'Yesterday' : 'This week'}
           </button>
         ))}
+        <input
+          className="filter-search"
+          type="text"
+          placeholder="Search entries…"
+          value={search}
+          autoComplete="off"
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <span className="filters-spacer" />
         {clients.length > 0 && (
           <select className="filter-select" value={filterClient} onChange={(e) => setFilterClient(e.target.value)}>
