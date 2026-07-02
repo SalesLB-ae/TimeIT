@@ -28,6 +28,7 @@ export function parseCsv(text: string): string[][] {
 }
 
 export interface ParsedEntry {
+  client: string;
   project: string;
   description: string;
   startMs: number;
@@ -55,6 +56,7 @@ export function mapEntries(rows: string[][]): { headers: string[]; entries: Pars
 
   const has = (s: string) => (h: string) => h.includes(s);
   const iDesc = findCol(lower, has('description'));
+  const iClient = findCol(lower, has('client'));
   const iProject = findCol(lower, has('project'));
   const iStartDate = findCol(lower, (h) => h.includes('start') && h.includes('date'));
   const iStartTime = findCol(lower, (h) => h.includes('start') && h.includes('time'));
@@ -85,13 +87,14 @@ export function mapEntries(rows: string[][]): { headers: string[]; entries: Pars
 
     const description = get(iDesc);
     const project = get(iProject);
+    const client = get(iClient);
 
     let error: string | undefined;
     if (isNaN(startMs)) error = 'Unreadable start time';
     else if (isNaN(endMs)) error = 'Missing/unreadable end (or duration)';
     else if (endMs <= startMs) error = 'End is not after start';
 
-    return { project, description, startMs, endMs, valid: !error, error };
+    return { client, project, description, startMs, endMs, valid: !error, error };
   });
 
   return { headers, entries };

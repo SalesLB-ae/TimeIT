@@ -29,6 +29,7 @@ export interface Project {
   team: Team | null;
   client_id: string | null;
   archived: boolean;
+  done: boolean;
   created_by: string | null;
   created_at: string;
 }
@@ -38,6 +39,7 @@ export interface Task {
   project_id: string;
   name: string;
   archived: boolean;
+  done: boolean;
   created_at: string;
 }
 

@@ -92,6 +92,11 @@ export async function setProjectArchived(supabase: DB, id: string, archived: boo
   if (error) throw error;
 }
 
+export async function setProjectDone(supabase: DB, id: string, done: boolean) {
+  const { error } = await supabase.from('projects').update({ done }).eq('id', id);
+  if (error) throw error;
+}
+
 /* ---------- Clients ---------- */
 
 export async function fetchClients(supabase: DB, includeArchived = false): Promise<Client[]> {
@@ -140,6 +145,19 @@ export async function createTask(supabase: DB, projectId: string, name: string) 
 export async function setTaskArchived(supabase: DB, id: string, archived: boolean) {
   const { error } = await supabase.from('tasks').update({ archived }).eq('id', id);
   if (error) throw error;
+}
+
+export async function setTaskDone(supabase: DB, id: string, done: boolean) {
+  const { error } = await supabase.from('tasks').update({ done }).eq('id', id);
+  if (error) throw error;
+}
+
+// Find-or-create a client by name (used by CSV import).
+export async function ensureClient(supabase: DB, name: string, color: string, userId: string): Promise<Client> {
+  const trimmed = name.trim();
+  const { data: existing } = await supabase.from('clients').select('*').ilike('name', trimmed).limit(1);
+  if (existing && existing.length) return existing[0] as Client;
+  return createClient_(supabase, trimmed, color, userId);
 }
 
 /* ---------- Time entries ---------- */

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { bulkAddEntries, createProject, fetchProjects } from '@/lib/db';
+import { bulkAddEntries, createProject, ensureClient } from '@/lib/db';
 import type { Project, Team } from '@/lib/types';
 import { parseCsv, mapEntries, type ParsedEntry } from '@/lib/csv';
 import * as Fmt from '@/lib/format';
@@ -53,16 +53,29 @@ export function ImportModal({
     try {
       const supabase = createClient();
       // Resolve project names → ids, creating any that don't exist yet.
+      // A CSV Client column is created/linked too (the broad scope).
       const byName = new Map<string, string>();
       for (const p of projects) byName.set(p.name.trim().toLowerCase(), p.id);
+      const clientByName = new Map<string, string>();
 
       const rows = [];
       for (const e of valid) {
+        // Resolve the client first (if the CSV carries one).
+        let clientId: string | null = null;
+        const cKey = e.client.trim().toLowerCase();
+        if (cKey) {
+          if (!clientByName.has(cKey)) {
+            const c = await ensureClient(supabase, e.client.trim(), '#6c5ce7', userId);
+            clientByName.set(cKey, c.id);
+          }
+          clientId = clientByName.get(cKey)!;
+        }
+
         let projectId: string | null = null;
         const key = e.project.trim().toLowerCase();
         if (key) {
           if (!byName.has(key)) {
-            const created = await createProject(supabase, e.project.trim(), '#2f6df6', userId, myTeam);
+            const created = await createProject(supabase, e.project.trim(), '#2f6df6', userId, myTeam, clientId);
             byName.set(key, created.id);
           }
           projectId = byName.get(key)!;
@@ -91,9 +104,10 @@ export function ImportModal({
           <>
             <p className="import-help">
               Upload a CSV exported from TimeIT or Clockify. We detect columns automatically —
-              <strong> Project, Description</strong>, and either <strong>Start/End</strong> datetimes
+              <strong> Client, Project, Description</strong>, and either <strong>Start/End</strong> datetimes
               or <strong>Start&nbsp;Date/Time + End&nbsp;Date/Time</strong> (a Duration column is used
-              if there&apos;s no end).
+              if there&apos;s no end). Any <strong>Client</strong> and <strong>Project</strong> that don&apos;t
+              exist yet are created automatically and linked.
             </p>
             <label className="file-drop">
               <input type="file" accept=".csv,text/csv" onChange={onFile} />
@@ -118,7 +132,7 @@ export function ImportModal({
                       ? `${Fmt.dayLabel(e.startMs)} · ${Fmt.clockTime(e.startMs)}–${Fmt.clockTime(e.endMs)}`
                       : (e.error ?? 'Invalid')}
                   </span>
-                  <span className="import-proj">{e.project || '—'}</span>
+                  <span className="import-proj">{[e.client, e.project].filter(Boolean).join(' · ') || '—'}</span>
                   <span className="import-desc">{e.description || 'No description'}</span>
                   <span className="import-dur">
                     {e.valid ? Fmt.durationShort(e.endMs - e.startMs) : ''}
