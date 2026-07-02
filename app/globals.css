@@ -125,28 +125,6 @@ body {
 
 /* ---------- Timer card ---------- */
 .timer-card { padding: 18px; }
-.timer-primary { display: flex; align-items: center; gap: 12px; }
-/* Compact, frosted to match the theme — a soft pill with a subtle chevron. */
-.category-select {
-  flex: 1; min-width: 0;
-  font-size: 15px; font-weight: 600; color: var(--text);
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  background-color: rgba(255, 255, 255, 0.32);
-  border-radius: 10px; padding: 9px 32px 9px 12px;
-  cursor: pointer; outline: none;
-  appearance: none; -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%232f6df6' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
-  background-repeat: no-repeat; background-position: right 11px center;
-  transition: background-color 0.15s, border-color 0.15s;
-}
-.category-select:hover { background-color: rgba(255, 255, 255, 0.46); }
-.category-select:focus-visible { border-color: var(--accent); }
-.timer-note {
-  width: 100%; margin-top: 12px; border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.45); color: var(--text);
-  border-radius: var(--radius-sm); padding: 9px 12px; font-size: 13.5px; outline: none;
-}
-.timer-note::placeholder { color: var(--text-dim); }
 .timer-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 .project-select, .filter-select {
   appearance: none; -webkit-appearance: none;
@@ -422,7 +400,6 @@ body {
 .filters-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 2px 16px; }
 .filters-spacer { flex: 1; }
 .chip-sm { padding: 5px 11px; font-size: 12.5px; }
-.density-toggle { display: flex; gap: 6px; }
 
 /* Entry typography hierarchy */
 .entry-desc { font-size: 15.5px; font-weight: 700; color: var(--text); }
