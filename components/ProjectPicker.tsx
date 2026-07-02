@@ -70,7 +70,7 @@ export function ProjectPicker({
             <span className="picker-proj">{selected.name}</span>
           </>
         ) : (
-          <span className="picker-placeholder">Select a project…</span>
+          <span className="picker-placeholder">Pick a project</span>
         )}
         <span className="picker-caret">▾</span>
       </button>

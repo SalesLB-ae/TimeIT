@@ -124,7 +124,10 @@ body {
 .team-badge.is-none { color: var(--text-dim); background: rgba(93, 119, 147, 0.12); }
 
 /* ---------- Timer card ---------- */
-.timer-card { padding: 18px; }
+/* Elevated stacking context so the project dropdown paints above the
+   filters/entries that follow it in the DOM (each of which forms its own
+   context), keeping the open panel clickable instead of buried behind them. */
+.timer-card { padding: 18px; position: relative; z-index: 30; }
 .timer-controls { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
 .project-select, .filter-select {
   appearance: none; -webkit-appearance: none;
@@ -563,17 +566,6 @@ body {
   border-radius: var(--radius-sm); padding: 8px 12px; font-size: 13px; outline: none;
 }
 .timer-note::placeholder { color: var(--text-dim); }
-
-/* Recent-projects quick chips */
-.recent-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.recent-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-dim); }
-.recent-chip {
-  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
-  border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.4);
-  border-radius: 999px; padding: 4px 11px; font-size: 12.5px; font-weight: 600; color: var(--text);
-}
-.recent-chip:hover { background: rgba(255, 255, 255, 0.65); }
-.recent-chip.is-active { border-color: var(--accent); color: var(--accent); }
 
 /* Clients & Projects management */
 .client-list { display: flex; flex-direction: column; gap: 12px; }

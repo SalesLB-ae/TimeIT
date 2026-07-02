@@ -60,9 +60,8 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     setEntries(e);
     setClients(c);
     setTasks(t);
-    if (!projectId && p.length) setProjectId(p[0].id);
     setLoading(false);
-  }, [supabase, userId, projectId]);
+  }, [supabase, userId]);
 
   const clientOf = useMemo(() => {
     const projClient = new Map(projects.map((p) => [p.id, p.client_id]));
@@ -217,40 +216,11 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     return (id: string | null) => (id ? m.get(id) ?? null : null);
   }, [tasks]);
 
-  // Recent distinct projects (most-recently used first) for quick re-use.
-  const recentProjects = useMemo(() => {
-    const seen = new Set<string>();
-    const out: Project[] = [];
-    for (const e of entries) {
-      if (e.project_id && !seen.has(e.project_id)) {
-        const p = projects.find((pr) => pr.id === e.project_id);
-        if (p) { seen.add(e.project_id); out.push(p); }
-      }
-      if (out.length >= 5) break;
-    }
-    return out;
-  }, [entries, projects]);
-
   // Tasks available for the currently-selected composer project.
   const composerTasks = useMemo(
     () => tasks.filter((t) => t.project_id === projectId),
     [tasks, projectId]
   );
-
-  // Most-recent distinct completed entries, for one-click "Continue previous".
-  const previousEntries = useMemo(() => {
-    const seen = new Set<string>();
-    const out: TimeEntry[] = [];
-    for (const e of entries) {
-      if (!e.ended_at) continue;
-      const key = (e.project_id ?? '') + '|' + e.description.trim().toLowerCase() + '|' + (e.task_id ?? '');
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(e);
-      if (out.length >= 3) break;
-    }
-    return out;
-  }, [entries]);
 
   // ---- Filtering ----
   const allTags = useMemo(() => {
@@ -370,44 +340,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       <div className="manual-add">
         <button className="link-btn" onClick={openManualAdd}>+ Add time manually</button>
       </div>
-
-      {/* ---- Continue previous timer ---- */}
-      {!open && previousEntries.length > 0 && (
-        <div className="quick-section">
-          <div className="quick-head">Continue previous</div>
-          <div className="quick-continue">
-            {previousEntries.map((e) => {
-              const p = projects.find((pr) => pr.id === e.project_id);
-              return (
-                <button className="continue-card glass" key={e.id} onClick={() => continueEntry(e)}>
-                  <span className="continue-play">▶</span>
-                  <span className="continue-main">
-                    <span className="continue-desc">{e.description || 'No description'}</span>
-                    <span className="continue-meta">
-                      {(p ? p.name : 'No project') + (taskName(e.task_id) ? ' • ' + taskName(e.task_id) : '')}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* ---- Recent projects ---- */}
-      {!open && recentProjects.length > 0 && (
-        <div className="quick-section">
-          <div className="quick-head">Recent projects</div>
-          <div className="recent-chips">
-            {recentProjects.map((p) => (
-              <button key={p.id} className={'recent-chip' + (projectId === p.id ? ' is-active' : '')} onClick={() => { changeProject(p.id); setTaskId(''); }}>
-                <span className="entry-dot" style={{ background: p.color, width: 8, height: 8 }} />
-                {p.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ---- Filters ---- */}
       <div className="filters-bar">
