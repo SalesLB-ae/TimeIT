@@ -107,7 +107,7 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
 
   function exportCsv() {
     const byId = new Map(projects.map((p) => [p.id, p]));
-    const rowsCsv = [['Project', 'Description', 'Tags', 'Billable', 'Start', 'End', 'Duration (h)']];
+    const rowsCsv = [['Project', 'Description', 'Tags', 'Start', 'End', 'Duration (h)']];
     for (const e of entries) {
       if (!e.ended_at) continue;
       const hours = ((new Date(e.ended_at).getTime() - new Date(e.started_at).getTime()) / 3600000).toFixed(2);
@@ -115,7 +115,6 @@ export function ReportsClient({ userId, myTeam }: { userId: string; myTeam: Team
         (e.project_id && byId.get(e.project_id)?.name) || '',
         e.description || '',
         (e.tags ?? []).join('; '),
-        e.billable ? 'Yes' : 'No',
         new Date(e.started_at).toISOString(),
         new Date(e.ended_at).toISOString(),
         hours,

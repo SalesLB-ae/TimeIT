@@ -166,7 +166,6 @@ export function EntryRow({
       <div className="entry-main">
         <div className={'entry-desc' + (entry.description ? '' : ' is-empty')}>
           {entry.description || 'No description'}
-          {entry.billable && <span className="billable-dot" title="Billable">$</span>}
         </div>
         <div className="entry-meta">
           {(project ? project.name + ' • ' : '') +

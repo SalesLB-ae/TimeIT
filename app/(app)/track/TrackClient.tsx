@@ -37,7 +37,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const [filterClient, setFilterClient] = useState('all');
   const [filterProject, setFilterProject] = useState('all');
   const [filterTask, setFilterTask] = useState('all');
-  const [filterBillable, setFilterBillable] = useState(false);
   const [filterTag, setFilterTag] = useState('all');
 
   const [modalEntry, setModalEntry] = useState<EntryDraft | null>(null);
@@ -247,10 +246,9 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       .filter((e) => filterClient === 'all' || clientOf(e.project_id) === filterClient)
       .filter((e) => filterProject === 'all' || e.project_id === filterProject)
       .filter((e) => filterTask === 'all' || e.task_id === filterTask)
-      .filter((e) => !filterBillable || e.billable)
       .filter((e) => filterTag === 'all' || (e.tags ?? []).includes(filterTag))
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
-  }, [entries, scope, filterClient, filterProject, filterTask, filterBillable, filterTag, clientOf]);
+  }, [entries, scope, filterClient, filterProject, filterTask, filterTag, clientOf]);
 
   // Overlap check for manual entries (against the user's own completed entries).
   const overlaps = useCallback(
@@ -371,9 +369,6 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
             {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
-        <button className={'chip chip-sm' + (filterBillable ? ' is-active' : '')} onClick={() => setFilterBillable((b) => !b)}>
-          Billable
-        </button>
       </div>
 
       {/* ---- Entries ---- */}

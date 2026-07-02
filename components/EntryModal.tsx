@@ -58,7 +58,8 @@ export function EntryModal({
   const [endTime, setEndTime] = useState(endParts.time);
   const [durationField, setDurationField] = useState('');
   const [tagsField, setTagsField] = useState(draft.tags.join(', '));
-  const [billable, setBillable] = useState(draft.billable);
+  // Billable is no longer editable in the UI; preserve any existing value on save.
+  const billable = draft.billable;
 
   // Canonical start/end in ms (end rolls to next day if it's <= start → overnight).
   const { startMs, endMs } = useMemo(() => {
@@ -195,11 +196,6 @@ export function EntryModal({
             placeholder="Sales, Client, Meeting"
             onChange={(e) => setTagsField(e.target.value)}
           />
-        </label>
-
-        <label className="checkbox-label">
-          <input type="checkbox" checked={billable} onChange={(e) => setBillable(e.target.checked)} />
-          Billable
         </label>
 
         <div className="modal-actions">
