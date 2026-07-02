@@ -76,7 +76,7 @@ export function ProjectPicker({
       </button>
 
       {open && (
-        <div className="picker-panel glass">
+        <div className="picker-panel">
           <input
             className="picker-search"
             placeholder="Search projects or clients…"
@@ -93,11 +93,12 @@ export function ProjectPicker({
                   <button
                     type="button"
                     key={p.id}
-                    className={'picker-item' + (p.id === value ? ' is-active' : '')}
+                    className={'picker-item' + (p.id === value ? ' is-active' : '') + (p.done ? ' is-done' : '')}
                     onClick={() => pick(p.id)}
                   >
                     <span className="picker-dot" style={{ background: p.color }} />
-                    {p.name}
+                    <span className="picker-item-name">{p.name}</span>
+                    {p.done && <span className="picker-done">✓ Done</span>}
                   </button>
                 ))}
               </div>

@@ -98,7 +98,7 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
     const meta = teamMeta(p.team);
     const ptasks = tasksByProject.get(p.id) ?? [];
     return (
-      <div className={'proj-row' + (p.archived ? ' is-archived' : '')} key={p.id}>
+      <div className={'proj-row' + (p.archived ? ' is-archived' : '') + (p.done ? ' is-done' : '')} key={p.id}>
         <div className="proj-head">
           <span className="entry-dot" style={{ background: p.color }} />
           <span className={'proj-name' + (p.done ? ' is-done' : '')}>{p.name}</span>
