@@ -45,6 +45,14 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
 
   useEffect(() => { reload(); }, [reload]);
 
+  // Default the "add project" client to Internal once clients load.
+  useEffect(() => {
+    if (!pClient && clients.length) {
+      const internal = clients.find((c) => c.is_internal);
+      if (internal) setPClient(internal.id);
+    }
+  }, [clients, pClient]);
+
   async function addProject(e: React.FormEvent) {
     e.preventDefault();
     const name = pName.trim();
@@ -130,8 +138,6 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
     );
   }
 
-  const noClientProjects = projectsOf(null);
-
   return (
     <section className="view">
       <div className="page-head">
@@ -145,7 +151,6 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
       <form className="project-form glass" onSubmit={addProject} style={{ padding: 14 }}>
         <input type="text" placeholder="New project name" value={pName} autoComplete="off" onChange={(e) => setPName(e.target.value)} required />
         <select className="filter-select" value={pClient} onChange={(e) => setPClient(e.target.value)} aria-label="Client">
-          <option value="">No client</option>
           {clients.filter((c) => !c.archived).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
         <select className="filter-select" value={pTeam} onChange={(e) => setPTeam(e.target.value)} aria-label="Team">
@@ -167,17 +172,6 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
         <p className="empty-state">Loading…</p>
       ) : (
         <div className="client-list">
-          {/* Ungrouped / internal projects lead — not everything is client work. */}
-          {noClientProjects.length > 0 && (
-            <div className="client-card glass">
-              <div className="client-head">
-                <span className="entry-dot" style={{ background: '#99a3ad', width: 14, height: 14 }} />
-                <span className="client-name">Projects (no client)</span>
-              </div>
-              {noClientProjects.map(renderProject)}
-            </div>
-          )}
-
           {visibleClients.map((c) => (
             <div className={'client-card glass' + (c.archived ? ' is-archived' : '')} key={c.id}>
               <div className="client-head">

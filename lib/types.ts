@@ -18,6 +18,7 @@ export interface Client {
   name: string;
   color: string;
   archived: boolean;
+  is_internal: boolean;
   created_by: string | null;
   created_at: string;
 }

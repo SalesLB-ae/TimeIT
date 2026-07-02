@@ -7,6 +7,7 @@ import type { Client, Project, Task, Team, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
 import { EntryModal, type EntryDraft } from '@/components/EntryModal';
 import { EntryRow, type EntrySaveFields } from '@/components/EntryRow';
+import { ProjectPicker } from '@/components/ProjectPicker';
 
 const ADD_NEW = '__add_new__';
 type Scope = 'all' | 'today' | 'yesterday' | 'week';
@@ -96,21 +97,11 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open?.id]);
 
-  // Suggest the project last used for a matching description (don't auto-apply).
-  const lastProjectFor = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const e of [...entries].sort((a, b) => new Date(a.started_at).getTime() - new Date(b.started_at).getTime())) {
-      if (e.description && e.project_id) map.set(e.description.trim().toLowerCase(), e.project_id);
-    }
-    return map;
-  }, [entries]);
-  const suggestedProject =
-    !open && description.trim()
-      ? (() => {
-          const id = lastProjectFor.get(description.trim().toLowerCase());
-          return id && id !== projectId ? projects.find((p) => p.id === id) ?? null : null;
-        })()
-      : null;
+  // The client of the currently-selected project (auto-populated context).
+  const composerClient = useMemo(() => {
+    const p = projects.find((pr) => pr.id === projectId);
+    return p ? clients.find((c) => c.id === p.client_id) ?? null : null;
+  }, [projects, clients, projectId]);
 
   async function start() {
     const tags = composerTags.split(',').map((t) => t.trim()).filter(Boolean);
@@ -246,6 +237,21 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
     [tasks, projectId]
   );
 
+  // Most-recent distinct completed entries, for one-click "Continue previous".
+  const previousEntries = useMemo(() => {
+    const seen = new Set<string>();
+    const out: TimeEntry[] = [];
+    for (const e of entries) {
+      if (!e.ended_at) continue;
+      const key = (e.project_id ?? '') + '|' + e.description.trim().toLowerCase() + '|' + (e.task_id ?? '');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(e);
+      if (out.length >= 3) break;
+    }
+    return out;
+  }, [entries]);
+
   // ---- Filtering ----
   const allTags = useMemo(() => {
     const s = new Set<string>();
@@ -310,40 +316,19 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
           onBlur={commitRunningDescription}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); open ? stop() : start(); } }}
         />
-        {suggestedProject && (
-          <button className="suggest-chip" onClick={() => setProjectId(suggestedProject.id)}>
-            ↳ Use <strong>{suggestedProject.name}</strong>
-          </button>
-        )}
-        {!open && recentProjects.length > 0 && (
-          <div className="recent-chips">
-            <span className="recent-label">Recent:</span>
-            {recentProjects.map((p) => (
-              <button key={p.id} className={'recent-chip' + (projectId === p.id ? ' is-active' : '')} onClick={() => { setProjectId(p.id); setTaskId(''); }}>
-                <span className="entry-dot" style={{ background: p.color, width: 8, height: 8 }} />
-                {p.name}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="timer-controls">
-          <select className="project-select" value={projectId} onChange={(e) => { changeProject(e.target.value); setTaskId(''); }} aria-label="Project">
-            {clients.map((c) => {
-              const cps = projects.filter((p) => p.client_id === c.id);
-              return cps.length ? (
-                <optgroup key={c.id} label={c.name}>
-                  {cps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </optgroup>
-              ) : null;
-            })}
-            {projects.some((p) => !p.client_id) && (
-              <optgroup label="No client">
-                {projects.filter((p) => !p.client_id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </optgroup>
-            )}
-            <option disabled>──────────</option>
-            <option value={ADD_NEW}>➕ Add new…</option>
-          </select>
+          <ProjectPicker
+            projects={projects}
+            clients={clients}
+            value={projectId}
+            onChange={(id) => { changeProject(id); setTaskId(''); }}
+          />
+          {composerClient && (
+            <span className="client-context" title="Client">
+              <span className="entry-dot" style={{ background: composerClient.color, width: 8, height: 8 }} />
+              {composerClient.name}
+            </span>
+          )}
 
           {composerTasks.length > 0 && (
             <select className="project-select" value={taskId} onChange={(e) => setTaskId(e.target.value)} aria-label="Task">
@@ -385,6 +370,44 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       <div className="manual-add">
         <button className="link-btn" onClick={openManualAdd}>+ Add time manually</button>
       </div>
+
+      {/* ---- Continue previous timer ---- */}
+      {!open && previousEntries.length > 0 && (
+        <div className="quick-section">
+          <div className="quick-head">Continue previous</div>
+          <div className="quick-continue">
+            {previousEntries.map((e) => {
+              const p = projects.find((pr) => pr.id === e.project_id);
+              return (
+                <button className="continue-card glass" key={e.id} onClick={() => continueEntry(e)}>
+                  <span className="continue-play">▶</span>
+                  <span className="continue-main">
+                    <span className="continue-desc">{e.description || 'No description'}</span>
+                    <span className="continue-meta">
+                      {(p ? p.name : 'No project') + (taskName(e.task_id) ? ' • ' + taskName(e.task_id) : '')}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ---- Recent projects ---- */}
+      {!open && recentProjects.length > 0 && (
+        <div className="quick-section">
+          <div className="quick-head">Recent projects</div>
+          <div className="recent-chips">
+            {recentProjects.map((p) => (
+              <button key={p.id} className={'recent-chip' + (projectId === p.id ? ' is-active' : '')} onClick={() => { changeProject(p.id); setTaskId(''); }}>
+                <span className="entry-dot" style={{ background: p.color, width: 8, height: 8 }} />
+                {p.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ---- Filters ---- */}
       <div className="filters-bar">

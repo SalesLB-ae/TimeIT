@@ -65,6 +65,12 @@ export async function fetchAllProjects(supabase: DB): Promise<Project[]> {
   return data ?? [];
 }
 
+// Every project belongs to a client; if none is given it falls to Internal.
+export async function internalClientId(supabase: DB): Promise<string | null> {
+  const { data } = await supabase.from('clients').select('id').eq('is_internal', true).limit(1);
+  return data?.[0]?.id ?? null;
+}
+
 export async function createProject(
   supabase: DB,
   name: string,
@@ -73,9 +79,10 @@ export async function createProject(
   team: Team | null,
   clientId: string | null = null
 ) {
+  const resolvedClient = clientId ?? (await internalClientId(supabase));
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name: name.trim(), color, created_by: userId, team, client_id: clientId })
+    .insert({ name: name.trim(), color, created_by: userId, team, client_id: resolvedClient })
     .select()
     .single();
   if (error) throw error;
