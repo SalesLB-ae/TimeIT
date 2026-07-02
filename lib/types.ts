@@ -13,13 +13,31 @@ export interface Profile {
   created_at: string;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  color: string;
+  archived: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Project {
   id: string;
   name: string;
   color: string;
   team: Team | null;
+  client_id: string | null;
   archived: boolean;
   created_by: string | null;
+  created_at: string;
+}
+
+export interface Task {
+  id: string;
+  project_id: string;
+  name: string;
+  archived: boolean;
   created_at: string;
 }
 
@@ -28,6 +46,7 @@ export interface TimeEntry {
   user_id: string;
   project_id: string | null;
   description: string;
+  task_id: string | null;
   started_at: string;      // ISO timestamp
   ended_at: string | null; // null while active (running OR paused)
   running_since: string | null; // start of current active segment; null = paused

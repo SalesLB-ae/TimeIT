@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import * as db from '@/lib/db';
-import type { Project, Team, TimeEntry } from '@/lib/types';
+import type { Client, Project, Task, Team, TimeEntry } from '@/lib/types';
 import * as Fmt from '@/lib/format';
 import { EntryModal, type EntryDraft } from '@/components/EntryModal';
 import { EntryRow, type EntrySaveFields } from '@/components/EntryRow';
@@ -21,15 +21,21 @@ function randomColor(seed: string): string {
 export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team | null }) {
   const supabase = useMemo(() => createClient(), []);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [entries, setEntries] = useState<TimeEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [description, setDescription] = useState('');
   const [projectId, setProjectId] = useState('');
+  const [taskId, setTaskId] = useState('');
+  const [composerTags, setComposerTags] = useState('');
   const [now, setNow] = useState(() => Date.now());
 
   const [scope, setScope] = useState<Scope>('all');
+  const [filterClient, setFilterClient] = useState('all');
   const [filterProject, setFilterProject] = useState('all');
+  const [filterTask, setFilterTask] = useState('all');
   const [filterBillable, setFilterBillable] = useState(false);
   const [filterTag, setFilterTag] = useState('all');
 
@@ -43,15 +49,24 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   const isPaused = !!open && !open.running_since;
 
   const reload = useCallback(async () => {
-    const [p, e] = await Promise.all([
+    const [p, e, c, t] = await Promise.all([
       db.fetchProjects(supabase),
       db.fetchMyEntries(supabase, userId),
+      db.fetchClients(supabase),
+      db.fetchTasks(supabase),
     ]);
     setProjects(p);
     setEntries(e);
+    setClients(c);
+    setTasks(t);
     if (!projectId && p.length) setProjectId(p[0].id);
     setLoading(false);
   }, [supabase, userId, projectId]);
+
+  const clientOf = useMemo(() => {
+    const projClient = new Map(projects.map((p) => [p.id, p.client_id]));
+    return (projectIdVal: string | null) => (projectIdVal ? projClient.get(projectIdVal) ?? null : null);
+  }, [projects]);
 
   useEffect(() => {
     reload();
@@ -98,8 +113,11 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       : null;
 
   async function start() {
-    await db.startTimer(supabase, userId, description, projectId || null);
+    const tags = composerTags.split(',').map((t) => t.trim()).filter(Boolean);
+    await db.startTimer(supabase, userId, description, projectId || null, tags, taskId || null);
     setDescription('');
+    setComposerTags('');
+    setTaskId('');
     await reload();
   }
   async function stop() {
@@ -140,7 +158,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   }
 
   async function continueEntry(e: TimeEntry) {
-    await db.startTimer(supabase, userId, e.description, e.project_id, e.tags ?? []);
+    await db.startTimer(supabase, userId, e.description, e.project_id, e.tags ?? [], e.task_id ?? null);
     setDescription('');
     await reload();
   }
@@ -176,14 +194,18 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
   async function saveModal(draft: EntryDraft) {
     const startIso = new Date(draft.start).toISOString();
     const endIso = new Date(draft.end).toISOString();
+    if (overlaps(new Date(draft.start).getTime(), new Date(draft.end).getTime(), draft.id)) {
+      if (!window.confirm('This overlaps an existing entry. Save anyway?')) return;
+    }
     if (draft.id) {
       await db.updateEntry(supabase, draft.id, {
-        description: draft.description, project_id: draft.projectId || null,
+        description: draft.description, project_id: draft.projectId || null, task_id: draft.taskId || null,
         started_at: startIso, ended_at: endIso, tags: draft.tags, billable: draft.billable,
       });
     } else {
       await db.addManualEntry(
-        supabase, userId, draft.description, draft.projectId || null, startIso, endIso, draft.tags, draft.billable
+        supabase, userId, draft.description, draft.projectId || null, startIso, endIso,
+        draft.tags, draft.billable, draft.taskId || null
       );
     }
     setModalEntry(null);
@@ -192,11 +214,37 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
 
   function openManualAdd() {
     setModalEntry({
-      id: null, description: '', projectId: projects[0]?.id ?? '',
+      id: null, description: '', projectId: projects[0]?.id ?? '', taskId: '',
       start: Fmt.toDatetimeLocal(Date.now() - 3600000), end: Fmt.toDatetimeLocal(Date.now()),
       tags: [], billable: false,
     });
   }
+
+  // ---- Lookups ----
+  const taskName = useMemo(() => {
+    const m = new Map(tasks.map((t) => [t.id, t.name]));
+    return (id: string | null) => (id ? m.get(id) ?? null : null);
+  }, [tasks]);
+
+  // Recent distinct projects (most-recently used first) for quick re-use.
+  const recentProjects = useMemo(() => {
+    const seen = new Set<string>();
+    const out: Project[] = [];
+    for (const e of entries) {
+      if (e.project_id && !seen.has(e.project_id)) {
+        const p = projects.find((pr) => pr.id === e.project_id);
+        if (p) { seen.add(e.project_id); out.push(p); }
+      }
+      if (out.length >= 5) break;
+    }
+    return out;
+  }, [entries, projects]);
+
+  // Tasks available for the currently-selected composer project.
+  const composerTasks = useMemo(
+    () => tasks.filter((t) => t.project_id === projectId),
+    [tasks, projectId]
+  );
 
   // ---- Filtering ----
   const allTags = useMemo(() => {
@@ -220,11 +268,25 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
         if (scope === 'week') return new Date(e.started_at).getTime() >= wkStart.getTime();
         return true;
       })
+      .filter((e) => filterClient === 'all' || clientOf(e.project_id) === filterClient)
       .filter((e) => filterProject === 'all' || e.project_id === filterProject)
+      .filter((e) => filterTask === 'all' || e.task_id === filterTask)
       .filter((e) => !filterBillable || e.billable)
       .filter((e) => filterTag === 'all' || (e.tags ?? []).includes(filterTag))
       .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
-  }, [entries, scope, filterProject, filterBillable, filterTag]);
+  }, [entries, scope, filterClient, filterProject, filterTask, filterBillable, filterTag, clientOf]);
+
+  // Overlap check for manual entries (against the user's own completed entries).
+  const overlaps = useCallback(
+    (startMs: number, endMs: number, excludeId: string | null) =>
+      entries.some((e) => {
+        if (e.id === excludeId || !e.ended_at) return false;
+        const s = new Date(e.started_at).getTime();
+        const en = new Date(e.ended_at).getTime();
+        return startMs < en && s < endMs;
+      }),
+    [entries]
+  );
 
   const groups = useMemo(() => groupByDay(completed), [completed]);
   const liveMs = open ? Fmt.liveEntryMs(open, now) : 0;
@@ -253,12 +315,42 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
             ↳ Use <strong>{suggestedProject.name}</strong>
           </button>
         )}
+        {!open && recentProjects.length > 0 && (
+          <div className="recent-chips">
+            <span className="recent-label">Recent:</span>
+            {recentProjects.map((p) => (
+              <button key={p.id} className={'recent-chip' + (projectId === p.id ? ' is-active' : '')} onClick={() => { setProjectId(p.id); setTaskId(''); }}>
+                <span className="entry-dot" style={{ background: p.color, width: 8, height: 8 }} />
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="timer-controls">
-          <select className="project-select" value={projectId} onChange={(e) => changeProject(e.target.value)} aria-label="Project">
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          <select className="project-select" value={projectId} onChange={(e) => { changeProject(e.target.value); setTaskId(''); }} aria-label="Project">
+            {clients.map((c) => {
+              const cps = projects.filter((p) => p.client_id === c.id);
+              return cps.length ? (
+                <optgroup key={c.id} label={c.name}>
+                  {cps.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </optgroup>
+              ) : null;
+            })}
+            {projects.some((p) => !p.client_id) && (
+              <optgroup label="No client">
+                {projects.filter((p) => !p.client_id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </optgroup>
+            )}
             <option disabled>──────────</option>
             <option value={ADD_NEW}>➕ Add new…</option>
           </select>
+
+          {composerTasks.length > 0 && (
+            <select className="project-select" value={taskId} onChange={(e) => setTaskId(e.target.value)} aria-label="Task">
+              <option value="">No task</option>
+              {composerTasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </select>
+          )}
 
           {isRunning && <span className="tracking-badge"><span className="pulse-dot" />Tracking</span>}
           {isPaused && <span className="tracking-badge is-paused">⏸ Paused</span>}
@@ -278,6 +370,16 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
             </>
           )}
         </div>
+        {!open && (
+          <input
+            className="timer-note"
+            type="text"
+            placeholder="Tags (comma-separated) — optional"
+            value={composerTags}
+            autoComplete="off"
+            onChange={(e) => setComposerTags(e.target.value)}
+          />
+        )}
       </div>
 
       <div className="manual-add">
@@ -292,10 +394,22 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
           </button>
         ))}
         <span className="filters-spacer" />
+        {clients.length > 0 && (
+          <select className="filter-select" value={filterClient} onChange={(e) => setFilterClient(e.target.value)}>
+            <option value="all">All clients</option>
+            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <select className="filter-select" value={filterProject} onChange={(e) => setFilterProject(e.target.value)}>
           <option value="all">All projects</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
+        {tasks.length > 0 && (
+          <select className="filter-select" value={filterTask} onChange={(e) => setFilterTask(e.target.value)}>
+            <option value="all">All tasks</option>
+            {tasks.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        )}
         {allTags.length > 0 && (
           <select className="filter-select" value={filterTag} onChange={(e) => setFilterTag(e.target.value)}>
             <option value="all">All tags</option>
@@ -329,6 +443,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
                   key={e.id}
                   entry={e}
                   project={projects.find((p) => p.id === e.project_id)}
+                  taskName={taskName(e.task_id)}
                   projects={projects}
                   onContinue={continueEntry}
                   onDuplicate={duplicate}
@@ -342,7 +457,7 @@ export function TrackClient({ userId, myTeam }: { userId: string; myTeam: Team |
       )}
 
       {modalEntry && (
-        <EntryModal draft={modalEntry} projects={projects} onSave={saveModal} onDelete={async (id) => { await db.deleteEntry(supabase, id); setModalEntry(null); await reload(); }} onClose={() => setModalEntry(null)} />
+        <EntryModal draft={modalEntry} projects={projects} tasks={tasks} onSave={saveModal} onDelete={async (id) => { await db.deleteEntry(supabase, id); setModalEntry(null); await reload(); }} onClose={() => setModalEntry(null)} />
       )}
 
       {pending && (

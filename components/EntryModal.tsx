@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { Project } from '@/lib/types';
+import type { Project, Task } from '@/lib/types';
 import { durationHM, parseDurationToMinutes } from '@/lib/format';
 
 export interface EntryDraft {
   id: string | null;
   description: string;
   projectId: string;
+  taskId: string;
   start: string; // datetime-local value
   end: string;   // datetime-local value
   tags: string[];
@@ -33,12 +34,14 @@ function buildLocal(ms: number): string {
 export function EntryModal({
   draft,
   projects,
+  tasks = [],
   onSave,
   onDelete,
   onClose,
 }: {
   draft: EntryDraft;
   projects: Project[];
+  tasks?: Task[];
   onSave: (d: EntryDraft) => void;
   onDelete: (id: string) => void;
   onClose: () => void;
@@ -48,6 +51,8 @@ export function EntryModal({
 
   const [description, setDescription] = useState(draft.description);
   const [projectId, setProjectId] = useState(draft.projectId);
+  const [taskId, setTaskId] = useState(draft.taskId);
+  const projectTasks = tasks.filter((t) => t.project_id === projectId);
   const [date, setDate] = useState(startParts.date);
   const [startTime, setStartTime] = useState(startParts.time);
   const [endTime, setEndTime] = useState(endParts.time);
@@ -95,6 +100,7 @@ export function EntryModal({
       id: draft.id,
       description,
       projectId,
+      taskId,
       start: buildLocal(startMs),
       end: buildLocal(endMs),
       tags: tagsField.split(',').map((t) => t.trim()).filter(Boolean),
@@ -122,7 +128,7 @@ export function EntryModal({
 
         <label>
           Project
-          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <select value={projectId} onChange={(e) => { setProjectId(e.target.value); setTaskId(''); }}>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -130,6 +136,18 @@ export function EntryModal({
             ))}
           </select>
         </label>
+
+        {projectTasks.length > 0 && (
+          <label>
+            Task
+            <select value={taskId} onChange={(e) => setTaskId(e.target.value)}>
+              <option value="">No task</option>
+              {projectTasks.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
 
         {/* Big, editable duration — the Clockify focal point */}
         <label className="duration-label">

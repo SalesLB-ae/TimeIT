@@ -24,6 +24,7 @@ function timeOf(ms: number) {
 export function EntryRow({
   entry,
   project,
+  taskName,
   projects,
   onContinue,
   onDuplicate,
@@ -32,6 +33,7 @@ export function EntryRow({
 }: {
   entry: TimeEntry;
   project: Project | undefined;
+  taskName?: string | null;
   projects: Project[];
   onContinue: (e: TimeEntry) => void;
   onDuplicate: (e: TimeEntry) => void;
@@ -167,7 +169,9 @@ export function EntryRow({
           {entry.billable && <span className="billable-dot" title="Billable">$</span>}
         </div>
         <div className="entry-meta">
-          {(project ? project.name + ' • ' : '') + Fmt.clockTime(startMs) + ' – ' + Fmt.clockTime(endMs)}
+          {(project ? project.name + ' • ' : '') +
+            (taskName ? taskName + ' • ' : '') +
+            Fmt.clockTime(startMs) + ' – ' + Fmt.clockTime(endMs)}
         </div>
         {entry.tags && entry.tags.length > 0 && (
           <div className="entry-tags">

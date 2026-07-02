@@ -62,6 +62,7 @@ export function CalendarClient({ userId }: { userId: string }) {
       id: null,
       description: '',
       projectId: projects[0]?.id ?? '',
+      taskId: '',
       start: Fmt.toDatetimeLocal(start.getTime()),
       end: Fmt.toDatetimeLocal(end.getTime()),
       tags: [],
@@ -74,6 +75,7 @@ export function CalendarClient({ userId }: { userId: string }) {
       id: e.id,
       description: e.description,
       projectId: e.project_id ?? '',
+      taskId: e.task_id ?? '',
       start: Fmt.toDatetimeLocal(new Date(e.started_at).getTime()),
       end: Fmt.toDatetimeLocal(new Date(e.ended_at!).getTime()),
       tags: e.tags ?? [],
@@ -88,6 +90,7 @@ export function CalendarClient({ userId }: { userId: string }) {
       await updateEntry(supabase, draft.id, {
         description: draft.description,
         project_id: draft.projectId || null,
+        task_id: draft.taskId || null,
         started_at: startIso,
         ended_at: endIso,
         tags: draft.tags,
@@ -95,7 +98,8 @@ export function CalendarClient({ userId }: { userId: string }) {
       });
     } else {
       await addManualEntry(
-        supabase, userId, draft.description, draft.projectId || null, startIso, endIso, draft.tags, draft.billable
+        supabase, userId, draft.description, draft.projectId || null, startIso, endIso,
+        draft.tags, draft.billable, draft.taskId || null
       );
     }
     setModal(null);

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Profile, Project, Role, Team, TimeEntry, TimeEntryWithUser } from '@/lib/types';
+import type { Client, Profile, Project, Role, Task, Team, TimeEntry, TimeEntryWithUser } from '@/lib/types';
 
 // Accept either the browser or server client. Each function below declares its
 // own typed return value, so query inputs/outputs stay checked at the call sites.
@@ -55,16 +55,27 @@ export async function fetchProjects(supabase: DB): Promise<Project[]> {
   return data ?? [];
 }
 
+// Include archived projects too (for the management view).
+export async function fetchAllProjects(supabase: DB): Promise<Project[]> {
+  const { data, error } = await supabase
+    .from('projects')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export async function createProject(
   supabase: DB,
   name: string,
   color: string,
   userId: string,
-  team: Team | null
+  team: Team | null,
+  clientId: string | null = null
 ) {
   const { data, error } = await supabase
     .from('projects')
-    .insert({ name: name.trim(), color, created_by: userId, team })
+    .insert({ name: name.trim(), color, created_by: userId, team, client_id: clientId })
     .select()
     .single();
   if (error) throw error;
@@ -73,6 +84,61 @@ export async function createProject(
 
 export async function archiveProject(supabase: DB, id: string) {
   const { error } = await supabase.from('projects').update({ archived: true }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function setProjectArchived(supabase: DB, id: string, archived: boolean) {
+  const { error } = await supabase.from('projects').update({ archived }).eq('id', id);
+  if (error) throw error;
+}
+
+/* ---------- Clients ---------- */
+
+export async function fetchClients(supabase: DB, includeArchived = false): Promise<Client[]> {
+  let q = supabase.from('clients').select('*').order('name', { ascending: true });
+  if (!includeArchived) q = q.eq('archived', false);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createClient_(supabase: DB, name: string, color: string, userId: string) {
+  const { data, error } = await supabase
+    .from('clients')
+    .insert({ name: name.trim(), color, created_by: userId })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function setClientArchived(supabase: DB, id: string, archived: boolean) {
+  const { error } = await supabase.from('clients').update({ archived }).eq('id', id);
+  if (error) throw error;
+}
+
+/* ---------- Tasks ---------- */
+
+export async function fetchTasks(supabase: DB, includeArchived = false): Promise<Task[]> {
+  let q = supabase.from('tasks').select('*').order('name', { ascending: true });
+  if (!includeArchived) q = q.eq('archived', false);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function createTask(supabase: DB, projectId: string, name: string) {
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert({ project_id: projectId, name: name.trim() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function setTaskArchived(supabase: DB, id: string, archived: boolean) {
+  const { error } = await supabase.from('tasks').update({ archived }).eq('id', id);
   if (error) throw error;
 }
 
@@ -117,7 +183,8 @@ export async function startTimer(
   userId: string,
   description: string,
   projectId: string | null,
-  tags: string[] = []
+  tags: string[] = [],
+  taskId: string | null = null
 ): Promise<TimeEntry> {
   await finalizeOpen(supabase, userId); // close any running/paused entry first
   const nowIso = new Date().toISOString();
@@ -132,6 +199,7 @@ export async function startTimer(
       running_since: nowIso,
       accumulated_seconds: 0,
       tags,
+      task_id: taskId,
     })
     .select()
     .single();
@@ -175,7 +243,8 @@ export async function addManualEntry(
   startedAt: string,
   endedAt: string,
   tags: string[] = [],
-  billable = false
+  billable = false,
+  taskId: string | null = null
 ) {
   const { error } = await supabase.from('time_entries').insert({
     user_id: userId,
@@ -185,6 +254,7 @@ export async function addManualEntry(
     ended_at: endedAt,
     tags,
     billable,
+    task_id: taskId,
   });
   if (error) throw error;
 }
@@ -195,6 +265,7 @@ export async function duplicateEntry(supabase: DB, userId: string, e: TimeEntry)
     user_id: userId,
     description: e.description,
     project_id: e.project_id,
+    task_id: e.task_id ?? null,
     started_at: e.started_at,
     ended_at: e.ended_at,
     tags: e.tags ?? [],

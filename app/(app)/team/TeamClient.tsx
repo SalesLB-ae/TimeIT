@@ -85,6 +85,7 @@ export function TeamClient({ isAdmin }: { isAdmin: boolean }) {
       id: e.id,
       description: e.description,
       projectId: e.project_id ?? '',
+      taskId: e.task_id ?? '',
       start: Fmt.toDatetimeLocal(new Date(e.started_at).getTime()),
       end: Fmt.toDatetimeLocal(new Date(e.ended_at!).getTime()),
       tags: e.tags ?? [],
@@ -97,6 +98,7 @@ export function TeamClient({ isAdmin }: { isAdmin: boolean }) {
     await updateEntry(supabase, draft.id, {
       description: draft.description,
       project_id: draft.projectId || null,
+      task_id: draft.taskId || null,
       started_at: new Date(draft.start).toISOString(),
       ended_at: new Date(draft.end).toISOString(),
       tags: draft.tags,
