@@ -104,6 +104,13 @@ export async function setProjectDone(supabase: DB, id: string, done: boolean) {
   if (error) throw error;
 }
 
+// Permanently delete a project. Its tasks are removed (ON DELETE CASCADE) and
+// any time entries that referenced it are kept but unlinked (ON DELETE SET NULL).
+export async function deleteProject(supabase: DB, id: string) {
+  const { error } = await supabase.from('projects').delete().eq('id', id);
+  if (error) throw error;
+}
+
 /* ---------- Clients ---------- */
 
 export async function fetchClients(supabase: DB, includeArchived = false): Promise<Client[]> {
@@ -156,6 +163,13 @@ export async function setTaskArchived(supabase: DB, id: string, archived: boolea
 
 export async function setTaskDone(supabase: DB, id: string, done: boolean) {
   const { error } = await supabase.from('tasks').update({ done }).eq('id', id);
+  if (error) throw error;
+}
+
+// Permanently delete a task. Time entries that referenced it are kept but
+// unlinked (ON DELETE SET NULL).
+export async function deleteTask(supabase: DB, id: string) {
+  const { error } = await supabase.from('tasks').delete().eq('id', id);
   if (error) throw error;
 }
 

@@ -115,6 +115,17 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
             <button className="mini-btn" onClick={async () => { await db.setProjectArchived(supabase, p.id, !p.archived); await reload(); }}>
               {p.archived ? 'Restore' : 'Archive'}
             </button>
+            <button
+              className="mini-btn mini-btn-danger"
+              title="Delete permanently"
+              onClick={async () => {
+                if (!window.confirm(`Delete project “${p.name}” permanently?\n\nIts tasks will be removed. Time entries logged to it are kept but unlinked from this project. This cannot be undone.`)) return;
+                await db.deleteProject(supabase, p.id);
+                await reload();
+              }}
+            >
+              Delete
+            </button>
           </span>
         </div>
         {ptasks.length > 0 && (
@@ -129,6 +140,14 @@ export function ProjectsClient({ userId, myTeam }: { userId: string; myTeam: Tea
                 <button className="task-x" title={t.archived ? 'Restore' : 'Archive'}
                   onClick={async () => { await db.setTaskArchived(supabase, t.id, !t.archived); await reload(); }}>
                   {t.archived ? '↺' : '×'}
+                </button>
+                <button className="task-x task-del" title="Delete permanently"
+                  onClick={async () => {
+                    if (!window.confirm(`Delete task “${t.name}” permanently? Time entries logged to it are kept but unlinked. This cannot be undone.`)) return;
+                    await db.deleteTask(supabase, t.id);
+                    await reload();
+                  }}>
+                  🗑
                 </button>
               </span>
             ))}
